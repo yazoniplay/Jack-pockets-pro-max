@@ -27,7 +27,9 @@ const SceneFrame: React.FC<{ scene: Scene }> = ({ scene }) => {
   const cameraScale = interpolate(frame, [0, Math.max(1, scene.durationInFrames)], [1.035, 1.105], {
     extrapolateRight: "clamp",
   });
-  const cameraDrift = interpolate(frame, [0, Math.max(1, scene.durationInFrames)], [-0.7, 0.7]);
+  const cameraDrift = interpolate(frame, [0, Math.max(1, scene.durationInFrames)], [-0.7, 0.7], {
+    extrapolateRight: "clamp",
+  });
 
   return (
     <AbsoluteFill style={{ backgroundColor: "#08090d", opacity }}>
