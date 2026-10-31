@@ -163,6 +163,8 @@ async def recommend_storyboard_footage(job_id: str) -> dict:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
     semaphore = asyncio.Semaphore(3)
     visual_provider = configured_providers().get("gemini")
+    visual_budget = 12
+    visual_budget_lock = asyncio.Lock()
 
     async def recommend(beat: dict) -> dict:
         async with semaphore:
@@ -176,13 +178,25 @@ async def recommend_storyboard_footage(job_id: str) -> dict:
                     beat["visual_query"],
                     duration,
                 )
-                ranked = await evaluate_visual_candidates(
-                    ranked,
-                    beat.get("narration_excerpt", ""),
-                    beat.get("visual_description", ""),
-                    beat["visual_query"],
-                    visual_provider,
-                )
+                run_visual_check = False
+                nonlocal visual_budget
+                if visual_provider:
+                    async with visual_budget_lock:
+                        if visual_budget > 0:
+                            visual_budget -= 1
+                            run_visual_check = True
+                if run_visual_check:
+                    ranked = await evaluate_visual_candidates(
+                        ranked,
+                        beat.get("narration_excerpt", ""),
+                        beat.get("visual_description", ""),
+                        beat["visual_query"],
+                        visual_provider,
+                    )
+                elif visual_provider:
+                    for item in ranked:
+                        item["visual_evidence"] = "budget_skipped"
+                        item["visual_notes"] = ["Visual review budget reached; metadata and technical ranking retained"]
                 return {
                     "beat_id": beat["id"],
                     "query": beat["visual_query"],
@@ -206,6 +220,8 @@ async def recommend_storyboard_footage(job_id: str) -> dict:
         "recommendations": recommendations,
         "searched_beats": len(recommendations),
         "beats_with_results": sum(bool(item["results"]) for item in recommendations),
+        "visual_evaluated_beats": sum(any(candidate.get("visual_evidence") == "gemini_preview_frame" for candidate in item["results"]) for item in recommendations),
+        "visual_review_limit": 12,
     }
 
 
