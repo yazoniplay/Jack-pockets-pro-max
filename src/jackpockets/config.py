@@ -1,6 +1,7 @@
 """Environment-backed configuration with safe defaults."""
 
 from functools import lru_cache
+
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
