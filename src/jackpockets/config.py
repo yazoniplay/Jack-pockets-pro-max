@@ -20,7 +20,7 @@ class Settings(BaseSettings):
     ollama_model: str = "gpt-oss:120b"
     groq_api_key: str | None = None
     groq_base_url: str = "https://api.groq.com/openai/v1"
-    groq_model: str = "llama-3.3-70b-versatile"
+    groq_model: str = "openai/gpt-oss-120b"
     pexels_api_key: str | None = None
     cors_origins: str = "http://localhost:3000,http://localhost:5173"
 
