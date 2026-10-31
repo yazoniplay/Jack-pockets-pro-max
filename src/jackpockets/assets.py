@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from dataclasses import dataclass, field
 from pathlib import Path
 import re
@@ -134,6 +135,85 @@ def rank_editorial_candidates(candidates: list[FootageCandidate], narration_exce
         ranked.append(item)
     return sorted(ranked, key=lambda item: item["editorial_score"], reverse=True)
 
+async def evaluate_visual_candidates(
+    ranked_candidates: list[dict],
+    narration_excerpt: str,
+    visual_description: str,
+    visual_query: str,
+    provider,
+) -> list[dict]:
+    """Use a configured multimodal model to inspect Pexels preview frames."""
+    if not provider or not hasattr(provider, "generate_with_images"):
+        return ranked_candidates
+    candidates = ranked_candidates[:5]
+    images: list[tuple[bytes, str]] = []
+    image_ids: list[str] = []
+    async with httpx.AsyncClient(timeout=15, follow_redirects=False) as client:
+        for candidate in candidates:
+            thumbnail = candidate.get("thumbnail_url")
+            if not thumbnail:
+                continue
+            parsed = urlparse(thumbnail)
+            host = parsed.hostname or ""
+            if parsed.scheme != "https" or not (host == "pexels.com" or host.endswith(".pexels.com")):
+                continue
+            try:
+                response = await client.get(thumbnail)
+                response.raise_for_status()
+                final_host = urlparse(str(response.url)).hostname or ""
+                content_type = response.headers.get("content-type", "").split(";")[0].lower()
+                if not (final_host == "pexels.com" or final_host.endswith(".pexels.com")):
+                    continue
+                if content_type not in {"image/jpeg", "image/png", "image/webp"} or len(response.content) > 2_000_000:
+                    continue
+                images.append((response.content, content_type))
+                image_ids.append(str(candidate["provider_id"]))
+            except (httpx.HTTPError, KeyError, TypeError):
+                continue
+    if not images:
+        for item in ranked_candidates:
+            item["visual_evidence"] = "preview_unavailable"
+            item["visual_notes"] = ["No safe preview frame was available for visual inspection"]
+        return ranked_candidates
+    image_guide = "\n".join(f"Image {index + 1} corresponds to Pexels clip ID {provider_id}." for index, provider_id in enumerate(image_ids))
+    prompt = (
+        "Inspect each supplied video preview frame as documentary footage. "
+        "Judge only what is visibly present; do not infer hidden context, identity, date, or location. "
+        "Compare each image with the narration excerpt, intended visual description, and search intent. "
+        "Score semantic visual relevance from 0 to 100. Penalize generic or misleading imagery. "
+        "Return JSON only: {\"scores\":[{\"provider_id\":\"...\",\"score\":0,\"reason\":\"short evidence-based explanation\"}]}.\n\n"
+        f"NARRATION: {narration_excerpt}\nVISUAL INTENT: {visual_description}\nSEARCH INTENT: {visual_query}\n\n{image_guide}"
+    )
+    try:
+        reply = await provider.generate_with_images(
+            "You are a rigorous documentary visual editor. Evaluate only visible evidence and be conservative.",
+            prompt,
+            images,
+        )
+        raw = reply.text.strip()
+        if raw.startswith("```"):
+            raw = raw.split("\n", 1)[-1].removesuffix("```").strip()
+        payload = json.loads(raw)
+        scores = {str(item["provider_id"]): item for item in payload.get("scores", [])}
+    except Exception:
+        for item in ranked_candidates:
+            item["visual_evidence"] = "evaluation_failed"
+            item["visual_notes"] = ["Visual model evaluation failed; metadata and technical ranking retained"]
+        return ranked_candidates
+    for item in ranked_candidates:
+        score = scores.get(str(item["provider_id"]))
+        if score is None:
+            item["visual_evidence"] = "not_scored"
+            item["visual_notes"] = ["No visual assessment returned for this clip"]
+            continue
+        visual_score = max(0, min(100, int(score.get("score", 0))))
+        item["visual_score"] = visual_score
+        item["visual_notes"] = [str(score.get("reason", "Visual match assessed"))[:240]]
+        item["visual_evidence"] = "gemini_preview_frame"
+        item["editorial_score"] = round(
+            visual_score * 0.65 + item.get("semantic_score", 0) * 0.2 + item.get("quality_score", 0) * 0.15
+        )
+    return sorted(ranked_candidates, key=lambda item: item.get("editorial_score", 0), reverse=True)
 def diversify_storyboard_recommendations(recommendations: list[dict]) -> list[dict]:
     """Choose distinct primary clips across beats without hiding alternatives."""
     used: set[str] = set()
