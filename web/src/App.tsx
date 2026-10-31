@@ -61,7 +61,9 @@ export default function App() {
 
   const selected = useMemo(() => jobs.find((job) => job.id === selectedId) || null, [jobs, selectedId]);
   const result = selected?.result || {};
-  const assets: Asset[] = result.assets || [];\n  const storyboard = result.storyboard;\n  const coveredBeats = storyboard?.beats?.filter((beat: any) => assets.some((asset) => asset.beat_id === beat.id)).length || 0;
+  const assets: Asset[] = result.assets || [];
+  const storyboard = result.storyboard;
+  const coveredBeats = storyboard?.beats?.filter((beat: any) => assets.some((asset) => asset.beat_id === beat.id)).length || 0;
   const narration = result.narration;
   const synthesis = result.synthesis || "";
   const scriptReview = result.script_review || "";
