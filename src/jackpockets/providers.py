@@ -147,11 +147,7 @@ class GeminiProvider(RESTProvider):
         data = await self._post(
             f"https://generativelanguage.googleapis.com/v1beta/models/{self.model}:generateContent?key={self.api_key}",
             {"Content-Type": "application/json"},
-            {
-                "systemInstruction": {"parts": [{"text": system}]},
-                "contents": [{"role": "user", "parts": [{"text": prompt}]}],
-                "generationConfig": {"temperature": 0.4, "maxOutputTokens": 5000},
-            },
+            payload,
         )
         try:
             text = "\n".join(
