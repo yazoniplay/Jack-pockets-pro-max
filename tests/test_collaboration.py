@@ -32,6 +32,8 @@ def test_three_providers_run_specialist_agents_and_cross_review() -> None:
         "fact_checker",
     }
     assert all(item.critique for item in result.contributions)
+    assert result.script_draft
+    assert result.script_review
     assert all(provider.calls >= 2 for provider in providers.values())
 
 
@@ -39,4 +41,6 @@ def test_single_provider_is_never_mislabeled_as_collaboration() -> None:
     provider = FakeProvider("openai")
     result = asyncio.run(run_roundtable({"openai": provider}, {"topic": "Test"}))
     assert result.mode == "single_provider"
+    assert result.script_draft
+    assert result.script_review is None
     assert any("not genuine multi-model collaboration" in warning for warning in result.warnings)
