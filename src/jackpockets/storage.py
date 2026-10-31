@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import sqlite3
+from contextlib import contextmanager
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
@@ -11,14 +12,21 @@ from typing import Any
 from .config import get_settings
 
 
-def _connect() -> sqlite3.Connection:
+@contextmanager
+def _connect():
     path = Path(get_settings().database_path)
     path.parent.mkdir(parents=True, exist_ok=True)
     connection = sqlite3.connect(path, timeout=15)
     connection.row_factory = sqlite3.Row
-    connection.execute("PRAGMA journal_mode=WAL")
     connection.execute("PRAGMA foreign_keys=ON")
-    return connection
+    try:
+        yield connection
+        connection.commit()
+    except Exception:
+        connection.rollback()
+        raise
+    finally:
+        connection.close()
 
 
 def initialize_database() -> None:
@@ -113,3 +121,21 @@ def update_job(
             "INSERT INTO job_events(job_id,event_type,payload_json,created_at) VALUES(?,?,?,?)",
             (job_id, event_type, json.dumps(payload or {}), timestamp),
         )
+
+
+def claim_job(job_id: str) -> bool:
+    """Atomically claim a queued or failed job so duplicate requests cannot run it twice."""
+    timestamp = now()
+    with _connect() as db:
+        cursor = db.execute(
+            "UPDATE jobs SET status='planning',error=NULL,updated_at=? "
+            "WHERE id=? AND status IN ('queued','failed')",
+            (timestamp, job_id),
+        )
+        if cursor.rowcount != 1:
+            return False
+        db.execute(
+            "INSERT INTO job_events(job_id,event_type,payload_json,created_at) VALUES(?,?,?,?)",
+            (job_id, "pipeline.started", json.dumps({"stage": "multi_agent_planning"}), timestamp),
+        )
+        return True
