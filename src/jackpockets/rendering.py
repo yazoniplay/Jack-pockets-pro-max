@@ -6,7 +6,7 @@ import json
 import subprocess
 from pathlib import Path
 
-from .media import MediaError, MediaReport, validate_render
+from .media import MediaError, MediaReport, probe_media, validate_render
 from .timeline import TimelineManifest
 
 
@@ -18,6 +18,26 @@ def _public_asset(renderer_dir: Path, relative_path: str) -> Path:
     if not target.is_file():
         raise MediaError(f"Required local asset is missing: {relative_path}")
     return target
+
+
+def _validate_narration_alignment(
+    narration_duration_seconds: float,
+    timeline_frames: int,
+    fps: int,
+    tolerance_seconds: float = 1.5,
+) -> float:
+    if narration_duration_seconds <= 0:
+        raise MediaError("Narration audio has no measurable duration.")
+    timeline_duration = timeline_frames / fps
+    difference = abs(narration_duration_seconds - timeline_duration)
+    if difference > tolerance_seconds:
+        raise MediaError(
+            f"Narration is {narration_duration_seconds:.2f}s but the approved visual "
+            f"timeline is {timeline_duration:.2f}s. Difference: {difference:.2f}s "
+            f"(maximum {tolerance_seconds:.2f}s). Regenerate the storyboard from the "
+            "current narration before rendering."
+        )
+    return timeline_duration
 
 
 def render_documentary(
@@ -38,7 +58,15 @@ def render_documentary(
     for scene in manifest.scenes:
         if scene.asset:
             _public_asset(renderer_dir, scene.asset.local_file)
-    _public_asset(renderer_dir, manifest.narration_file)
+    narration_path = _public_asset(renderer_dir, manifest.narration_file)
+    narration_report = probe_media(narration_path)
+    if not narration_report.audio_codec:
+        raise MediaError("The narration file does not contain an audio stream.")
+    expected_duration = _validate_narration_alignment(
+        narration_report.duration_seconds,
+        sum(scene.duration_frames for scene in manifest.scenes),
+        manifest.fps,
+    )
     if manifest.music_file:
         _public_asset(renderer_dir, manifest.music_file)
 
@@ -80,5 +108,6 @@ def render_documentary(
         require_audio=True,
         expected_width=manifest.width,
         expected_height=manifest.height,
+        expected_duration_seconds=expected_duration,
     )
     return output_path, report
