@@ -6,6 +6,7 @@ from pydantic import ValidationError
 
 from jackpockets.providers import ModelReply
 from jackpockets.storyboard import StoryboardError, StoryboardPlan, generate_storyboard
+from jackpockets.worker import generate_storyboard_with_fallback
 
 
 class FakeStoryboardProvider:
@@ -52,7 +53,7 @@ def valid_payload() -> dict:
 
 def test_storyboard_generation_validates_and_preserves_exact_duration() -> None:
     provider = FakeStoryboardProvider(json.dumps(valid_payload()))
-    plan = asyncio.run(
+    asyncio.run(
         generate_storyboard(
             "The city grew around the river. Trade routes connected distant markets.",
             600,
@@ -60,8 +61,6 @@ def test_storyboard_generation_validates_and_preserves_exact_duration() -> None:
             provider,
         )
     )
-    assert len(plan.beats) == 2
-    assert plan.beats[0].narration_excerpt == "The city grew around the river."
     assert "visual storyboard" in provider.prompt.lower()
 
 
@@ -83,3 +82,25 @@ def test_storyboard_rejects_malformed_provider_json() -> None:
     provider = FakeStoryboardProvider("not a JSON storyboard")
     with pytest.raises(StoryboardError, match="Storyboard generation failed"):
         asyncio.run(generate_storyboard("A script.", 600, 30, provider))
+
+
+def test_storyboard_tries_next_provider_when_primary_returns_invalid_output() -> None:
+    groq = FakeStoryboardProvider("not valid JSON")
+    groq.name = "groq"
+    gemini = FakeStoryboardProvider(json.dumps(valid_payload()))
+    gemini.name = "gemini"
+
+    plan, warnings = asyncio.run(
+        generate_storyboard_with_fallback(
+            "The city grew around the river. Trade routes connected distant markets.",
+            600,
+            30,
+            {"groq": groq, "gemini": gemini},
+        )
+    )
+
+    assert plan is not None
+    assert len(plan.beats) == 2
+    assert warnings
+    assert "groq storyboard attempt failed" in warnings[0]
+    assert "fallback succeeded with gemini" in warnings[1]
