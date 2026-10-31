@@ -64,7 +64,7 @@ async def run_narration_job(job_id: str, text: str, voice: str, fps: int) -> Non
         payload = dict(job.get("result") or {}) if job else {}
         payload["approved_script"] = text
         payload["narration"] = {
-            "audio_path": result.audio_path,
+            "audio_path": f"assets/{job_id}/narration.mp3",
             "voice": result.voice,
             "fps": result.fps,
             "duration_frames": result.duration_frames,
