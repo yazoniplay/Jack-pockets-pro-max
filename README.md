@@ -1,56 +1,67 @@
 # Jack Pockets Pro Max
 
-An AI-assisted documentary video generator. Give it a topic; it builds a researched documentary plan, writes narration, prepares captions and visual instructions, then renders a finished video.
+An AI documentary video generator. Enter a topic and build a documentary through research, story development, narration, visual planning, editing and quality assurance.
 
-## Product workflow
+The current working milestone is a persistent job API and multi-provider planning roundtable. It is not yet a complete MP4 generator.
 
-1. **Brief** — topic, audience, target duration, language and editorial tone.
-2. **Research** — gather source-backed claims and keep source URLs attached to each claim.
-3. **Story** — create a structured documentary outline and narration draft.
-4. **Editorial review** — check factual support, clarity, pacing and unsupported claims.
-5. **Voice** — generate narration through a configured speech provider.
-6. **Visual plan** — find licensed/reusable footage and stills; retain asset provenance and licensing metadata.
-7. **Timeline** — assemble narration, captions, footage, maps and restrained graphics.
-8. **Render + QA** — render the video and validate duration, audio, captions, media references and output integrity.
+## Current capabilities
+- Persistent SQLite documentary jobs and event history.
+- FastAPI endpoints to create, list and inspect jobs.
+- Native REST adapters for Anthropic Claude, Google Gemini and OpenAI.
+- Parallel specialist agents: research editor, story architect and skeptical fact-checker.
+- Cross-review round, followed by an executive synthesis.
+- Explicit single-provider vs multi-agent run labeling.
+- Provider timeouts, bounded retries and actionable errors.
+- Human review state before later production stages.
+- GitHub Actions lint and test workflow.
 
-## Engineering principles
+## Product pipeline
+1. Brief — topic, duration, language, audience and editorial tone.
+2. Research — source discovery, primary-source preference, claim extraction and provenance.
+3. Story — outline, act structure, narration and transitions.
+4. Editorial review — cross-model critique, factual review and human approval.
+5. Voice — narration generation and timing.
+6. Visual research — footage and still discovery with licensing/provenance metadata.
+7. Timeline — narration, captions, media, maps, charts and restrained graphics.
+8. Render — Remotion composition and FFmpeg processing.
+9. Quality assurance — source coverage, pacing, captions, audio, media reuse and final MP4 validation.
 
-- **A video generator first.** Multi-model collaboration exists to improve documentary production, not as a separate chat product.
-- **Provider adapters, not hard-coded vendors.** Claude, Gemini and OpenAI can participate as specialist reviewers when credentials are configured.
-- **No fake collaboration.** Provider fallback is not collaboration. A collaborative run records each agent's input, critique and final synthesis.
-- **Source provenance.** Research claims and media assets retain their source metadata.
-- **Human approval gates.** Research and script can be reviewed before expensive media and rendering stages.
-- **Fail honestly.** Missing credentials, unsupported media, weak sourcing and failed renders are explicit errors—not silently fabricated outputs.
+## Multi-model collaboration
+The roundtable is not a provider fallback chain. When all three keys are configured, the application assigns distinct specialist roles to Gemini, Claude and OpenAI, runs them concurrently, lets the configured agents critique the combined work, then asks an executive synthesis model to reconcile disagreements.
 
-## Current status
+A run with fewer than two successful providers is explicitly labeled as single-provider work. The system never describes that as full collaboration.
 
-The repository is being initialized. The first milestone is a working API and pipeline foundation. The web interface, provider integrations, media acquisition and Remotion renderer will be added in tested stages.
+Provider roles: Gemini is the research editor, Claude is the story architect, and OpenAI is the skeptical fact-checker and preferred synthesis provider. These are orchestration roles, not claims that a model has independently verified facts. Research claims still need traceable sources and human review.
 
-## Planned stack
+## Setup
+Requirements: Python 3.11+.
 
-- Python 3.11+ / FastAPI — orchestration API and pipeline.
-- TypeScript / React / Remotion — documentary timeline and rendering.
-- FFmpeg / FFprobe — media processing and output validation.
-- Optional LLM providers — Anthropic, Google Gemini and OpenAI.
-- Optional speech and stock-media providers — configured independently.
+1. Create and activate a Python virtual environment.
+2. Install dependencies with: pip install -e ".[dev]"
+3. Copy .env.example to .env.
+4. Add the provider API keys you actually have.
+5. Start the API with: uvicorn jackpockets.api:app --reload
 
-## Configuration
+API docs: http://127.0.0.1:8000/docs
 
-Copy `.env.example` to `.env` and fill only the providers you have access to. Never commit API keys.
+## API
+Create a job with POST /api/jobs and JSON body:
 
-The ChatGPT app subscription does **not** automatically include OpenAI API credits. OpenAI API access requires its own API key and billing setup. The same principle applies to other hosted providers.
+    {"brief":{"topic":"How the Panama Canal changed global trade","target_minutes":12}}
 
-## Local development
+Start its planning roundtable with POST /api/jobs/{job_id}/run. Inspect status and agent output with GET /api/jobs/{job_id}. Provider readiness is available at GET /api/providers.
 
-```bash
-python -m venv .venv
-source .venv/bin/activate
-pip install -e ".[dev]"
-uvicorn jackpockets.api:app --reload
-```
+## Credentials and cost
+Add provider API keys to .env. Never commit .env or paste secret keys into issues. Consumer ChatGPT, Claude and Gemini subscriptions do not automatically provide API credits. Hosted API calls may incur separate charges. The app does not make provider calls until a job is explicitly run.
 
-Open `http://127.0.0.1:8000/docs` for the API.
+## Development
+Run ruff check . and pytest.
+
+## Honest status
+The current code implements the job API and AI planning roundtable. It does not yet perform grounded web research, generate narration audio, acquire footage, compose a Remotion timeline or render an MP4. Those are the next engineering milestones; the README will be updated as each becomes functional and tested.
+
+## Security
+Secrets are environment-only. Provider error output is bounded. CORS defaults to local development origins. SQLite uses parameterized queries and foreign keys. Production deployment still needs authentication, authorization, rate limiting, encrypted secret management and durable worker infrastructure.
 
 ## License
-
-No license has been selected yet. Until one is added, all rights are reserved by default.
+No license has been selected. All rights are reserved by default.
