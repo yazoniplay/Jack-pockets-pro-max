@@ -5,8 +5,8 @@ from __future__ import annotations
 from contextlib import asynccontextmanager
 from uuid import uuid4
 
-from fastapi import BackgroundTasks, FastAPI, HTTPException, Query
 import httpx
+from fastapi import BackgroundTasks, FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 
 from . import __version__
@@ -15,7 +15,7 @@ from .config import get_settings
 from .providers import configured_providers
 from .schemas import CreateJobRequest, JobSummary, NarrationRequest
 from .storage import create_job as persist_job
-from .storage import get_job, initialize_database, list_jobs
+from .storage import get_job, initialize_database, list_jobs, update_job
 from .worker import run_job, run_narration_job
 
 
