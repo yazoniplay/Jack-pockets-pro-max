@@ -58,7 +58,10 @@ export default function App() {
   const result = selected?.result || {};
   const assets: Asset[] = result.assets || [];
   const narration = result.narration;
-  const synthesis = result.synthesis || "";\n  const scriptReview = result.script_review || "";\n  const scriptWordCount = script.trim() ? script.trim().split(/\\s+/).length : 0;\n  const estimatedScriptMinutes = scriptWordCount / 135;
+  const synthesis = result.synthesis || "";
+  const scriptReview = result.script_review || "";
+  const scriptWordCount = script.trim() ? script.trim().split(/\s+/).length : 0;
+  const estimatedScriptMinutes = scriptWordCount / 135;
 
   const refresh = useCallback(async () => {
     try {
