@@ -74,3 +74,5 @@ Secrets are environment-only. Footage downloads are restricted to Pexels-hosted 
 
 ## License
 No license has been selected. All rights are reserved by default.
+
+Recent production-quality safeguards include beat-aware technical footage ranking, narration-to-storyboard duration checks and final MP4 runtime verification.
