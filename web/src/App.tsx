@@ -163,8 +163,10 @@ export default function App() {
     void run("render", async () => {
       if (!assets.length) throw new Error("Add at least one footage clip before rendering.");
       const introFrames = 150;
-      const totalNeeded = Math.max(assets.length * 300, narration.duration_frames - introFrames);
-      const eachDuration = Math.ceil(totalNeeded / assets.length);
+      const footageFrames = assets.reduce((sum, asset) => sum + asset.duration_seconds * 30, 0);
+      if (introFrames + footageFrames < narration.duration_frames) {
+        throw new Error(`Selected footage covers ${Math.round(footageFrames / 30)} seconds, but narration needs about ${Math.round(narration.duration_frames / 30)} seconds. Add more unique clips before rendering.`);
+      }
       const scenes = [
         {
           id: "opening-title",
@@ -177,7 +179,7 @@ export default function App() {
         ...assets.map((asset, index) => ({
           id: `footage-${index + 1}`,
           kind: "footage",
-          duration_frames: eachDuration,
+          duration_frames: Math.max(15, asset.duration_seconds * 30),
           title: asset.title,
           body: asset.creator ? `Footage: ${asset.creator}` : "",
           asset: {
@@ -208,8 +210,6 @@ export default function App() {
     });
   };
 
-  const statusColor = selected?.status === "completed" ? "good" :
-    selected?.status === "failed" ? "bad" : "active";
 
   return (
     <div className="app-shell">
