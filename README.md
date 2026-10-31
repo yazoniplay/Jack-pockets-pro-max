@@ -11,7 +11,9 @@
 - Independent second-model narration audit with explicit factual-risk feedback.
 - Gemini Google Search grounding for research-stage source discovery; returned grounding URLs are preserved with the agent contribution.
 - Explicit single-provider vs multi-agent labeling. A fallback or solo run is never called collaboration.
-- Pexels stock-footage search and constrained download with creator, source page and license metadata.
+- Pexels stock-footage search and constrained download with creator, source page, license metadata and preview frames.
+- Beat-level editorial ranking that separates visual relevance from technical fit, with evidence notes and a cross-beat diversity pass to avoid reusing the same clip.
+- Optional Gemini multimodal review of Pexels preview frames against the exact narration excerpt and visual intent. The bulk workflow caps this at 12 beat reviews per run; other beats retain transparent metadata/technical ranking.
 - Optional Edge TTS narration with word-boundary captions mapped to timeline frames.
 - Pydantic timeline validation: asset provenance, unique scene IDs, caption bounds and adjacent-footage reuse checks.
 - Remotion 1920x1080 / 30fps composition with cinematic crossfades, slow camera movement, animated captions, narration and music.
@@ -24,7 +26,7 @@
 2. Run the AI roundtable. Gemini researches with Google Search grounding, Claude develops story structure, and OpenAI performs skeptical fact review when all three keys are configured.
 3. Inspect the agent drafts, critiques, source manifest and synthesis. The system drafts a full narration script and, when another provider is available, runs an independent factual-risk audit. Resolve disputed claims and edit the script; human approval remains mandatory.
 4. Submit the approved narration text. Edge TTS generates MP3 audio and word-boundary captions.
-5. Search Pexels for footage. Select relevant clips; downloads are stored with source and license metadata. The renderer can compose an original ambient score locally, or run without music.
+5. Search Pexels for footage. The editor compares preview frames with each beat's narration and visual intent when a Gemini API key is configured, ranks visual relevance separately from technical fit, and recommends unique clips across adjacent beats. Review and select clips; downloads retain source and license metadata. The renderer can compose an original ambient score locally, or run without music.
 6. Submit a validated timeline manifest containing scenes, downloaded assets, narration and captions.
 7. Remotion renders the MP4. FFprobe checks video/audio streams, duration and resolution before the job is marked complete.
 
@@ -68,7 +70,7 @@ Add API keys to .env. Gemini, Anthropic and OpenAI API calls are billed separate
 - GET /api/jobs/{id}/video — retrieve the validated MP4.
 
 ## Current limitations
-The production stages exist as real modules and API endpoints, but the whole experience is not yet a one-click autonomous pipeline. Editorial approval and timeline assembly are explicit steps; automated scene selection from the script, beat-by-beat shot matching, music-provider integrations and production-grade distributed queue are still future work. Production deployment also needs authentication, rate limiting, durable worker infrastructure and managed secret storage.
+The production stages exist as real modules and API endpoints, but the whole experience is not yet a one-click autonomous pipeline. Editorial approval and timeline assembly are explicit steps; fully autonomous final shot approval, deeper multi-frame video understanding, music-provider integrations and production-grade distributed queue are still future work. Production deployment also needs authentication, rate limiting, durable worker infrastructure and managed secret storage.
 
 ## Security and editorial standards
 Secrets are environment-only. Footage downloads are restricted to Pexels-hosted URLs and bounded by a size ceiling. Renderer asset paths are confined to renderer/public. Jobs are persisted with parameterized SQLite operations. AI output is treated as a draft: source grounding is not proof, and factual claims require editorial review.
@@ -78,4 +80,4 @@ No license has been selected. All rights are reserved by default.
 
 Recent production-quality safeguards include beat-aware technical footage ranking, narration-to-storyboard duration checks and final MP4 runtime verification.
 
-- One-click bulk Pexels discovery across every storyboard beat, with ranked options and explicit human clip selection.
+- One-click bulk Pexels discovery across every storyboard beat, with Gemini preview-frame review (up to 12 beats per run), metadata relevance, technical fit, cross-beat clip diversity and explicit human selection.
