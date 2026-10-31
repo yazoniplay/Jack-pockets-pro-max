@@ -126,3 +126,21 @@ def test_footage_source_credit_is_passed_to_renderer() -> None:
     )
     scene = manifest.to_remotion_props()["scenes"][0]
     assert scene["sourceCredit"] == "Footage: Example Creator · CC BY 4.0"
+
+
+def test_original_score_is_enabled_by_default_and_passed_to_renderer() -> None:
+    manifest = TimelineManifest(
+        title="A documentary",
+        scenes=[{"id": "intro", "kind": "title", "duration_frames": 90, "title": "Intro"}],
+    )
+    assert manifest.music_enabled is True
+    assert manifest.to_remotion_props()["musicSrc"] is None
+
+
+def test_original_score_can_be_disabled() -> None:
+    manifest = TimelineManifest(
+        title="A silent documentary",
+        music_enabled=False,
+        scenes=[{"id": "intro", "kind": "title", "duration_frames": 90, "title": "Intro"}],
+    )
+    assert manifest.to_remotion_props()["musicSrc"] is None
