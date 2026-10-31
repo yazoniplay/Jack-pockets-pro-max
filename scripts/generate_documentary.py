@@ -3,6 +3,7 @@
 The workflow deliberately keeps all generated media in the runner and publishes it
 as a GitHub Actions artifact; it does not require a continuously running web server.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -312,8 +313,10 @@ async def main(args: argparse.Namespace) -> Path:
         ],
         "",
         "## Editorial note",
-        "This is an AI-generated documentary draft. Review factual claims, source links, "
-        "narration and footage before public release.",
+        (
+            "This is an AI-generated documentary draft. Review factual claims, source links, "
+            "narration and footage before public release."
+        ),
     ]
     (output_dir / "documentary-report.md").write_text("\n".join(summary) + "\n", encoding="utf-8")
     (output_dir / "job-result.json").write_text(
