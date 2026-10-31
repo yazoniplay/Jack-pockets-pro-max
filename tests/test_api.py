@@ -4,6 +4,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from jackpockets.api import app
+from jackpockets.assets import FootageCandidate
 from jackpockets.config import get_settings
 from jackpockets.storage import update_job
 
@@ -102,3 +103,65 @@ def test_footage_selection_rejects_unknown_storyboard_beat(client: TestClient) -
     )
     assert response.status_code == 400
     assert response.json()["detail"] == "Unknown storyboard beat id."
+
+
+def test_bulk_storyboard_recommendations_search_each_beat(client: TestClient, monkeypatch) -> None:
+    class FakePexelsClient:
+        def __init__(self):
+            pass
+
+        async def search_videos(self, query: str, per_page: int = 12):
+            return [
+                FootageCandidate(
+                    provider="pexels",
+                    provider_id="98765",
+                    title=query,
+                    creator="Test creator",
+                    page_url="https://www.pexels.com/video/98765/",
+                    download_url="https://videos.pexels.com/98765.mp4",
+                    width=1920,
+                    height=1080,
+                    duration_seconds=12,
+                    license_name="Pexels License",
+                    license_url="https://www.pexels.com/license/",
+                )
+            ]
+
+    monkeypatch.setattr("jackpockets.api.PexelsClient", FakePexelsClient)
+    created = client.post(
+        "/api/jobs", json={"brief": {"topic": "How cities developed"}}
+    ).json()
+    update_job(
+        created["id"],
+        "needs_review",
+        "test.storyboard_ready",
+        result={
+            "storyboard": {
+                "fps": 30,
+                "beats": [
+                    {
+                        "id": "beat-01",
+                        "start_frame": 0,
+                        "end_frame": 300,
+                        "visual_query": "historic city skyline",
+                    },
+                    {
+                        "id": "beat-02",
+                        "start_frame": 300,
+                        "end_frame": 600,
+                        "visual_query": "historic trade port",
+                    },
+                ],
+            }
+        },
+    )
+    response = client.post(f"/api/jobs/{created['id']}/assets/recommendations")
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["searched_beats"] == 2
+    assert payload["beats_with_results"] == 2
+    assert [item["beat_id"] for item in payload["recommendations"]] == [
+        "beat-01",
+        "beat-02",
+    ]
+    assert payload["recommendations"][0]["results"][0]["quality_score"] > 0
