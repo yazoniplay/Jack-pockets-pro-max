@@ -84,7 +84,7 @@ async def run_narration_job(job_id: str, text: str, voice: str, fps: int) -> Non
 
             providers = configured_providers()
             storyboard_provider = (
-                providers.get("anthropic") or providers.get("openai") or providers.get("gemini")
+                providers.get("groq") or providers.get("gemini") or providers.get("ollama")
             )
             if storyboard_provider:
                 storyboard = await generate_storyboard(
