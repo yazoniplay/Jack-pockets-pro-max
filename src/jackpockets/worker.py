@@ -37,7 +37,7 @@ async def run_job(job_id: str, brief: dict) -> None:
             {"stage": "planning_complete", "collaboration_mode": result.mode},
             result=payload,
         )
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - persist any pipeline failure
         update_job(
             job_id,
             "failed",
