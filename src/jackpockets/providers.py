@@ -7,7 +7,7 @@ variables and are never included in API responses or logs.
 from __future__ import annotations
 
 import asyncio
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Protocol
 
 import httpx
@@ -24,6 +24,7 @@ class ModelReply:
     provider: str
     model: str
     text: str
+    sources: list[dict[str, str]] = field(default_factory=list)
 
 
 class LLMProvider(Protocol):
@@ -129,6 +130,20 @@ class GeminiProvider(RESTProvider):
     name = "gemini"
 
     async def generate(self, system: str, prompt: str) -> ModelReply:
+        return await self._generate(system, prompt, grounded=False)
+
+    async def generate_grounded(self, system: str, prompt: str) -> ModelReply:
+        """Use Gemini Google Search grounding for research-stage discovery."""
+        return await self._generate(system, prompt, grounded=True)
+
+    async def _generate(self, system: str, prompt: str, grounded: bool) -> ModelReply:
+        payload = {
+            "systemInstruction": {"parts": [{"text": system}]},
+            "contents": [{"role": "user", "parts": [{"text": prompt}]}],
+            "generationConfig": {"temperature": 0.3, "maxOutputTokens": 5000},
+        }
+        if grounded:
+            payload["tools"] = [{"google_search": {}}]
         data = await self._post(
             f"https://generativelanguage.googleapis.com/v1beta/models/{self.model}:generateContent?key={self.api_key}",
             {"Content-Type": "application/json"},
@@ -146,7 +161,15 @@ class GeminiProvider(RESTProvider):
             )
         except (KeyError, IndexError, TypeError) as exc:
             raise ProviderError("Gemini response did not contain candidate text.") from exc
-        return ModelReply(self.name, self.model, text)
+        sources = []
+        if grounded:
+            chunks = data.get("candidates", [{}])[0].get("groundingMetadata", {}).get("groundingChunks", [])
+            for chunk in chunks:
+                web = chunk.get("web", {})
+                uri = web.get("uri")
+                if uri:
+                    sources.append({"title": web.get("title", uri), "url": uri})
+        return ModelReply(self.name, self.model, text, sources)
 
 
 def configured_providers() -> dict[str, LLMProvider]:
