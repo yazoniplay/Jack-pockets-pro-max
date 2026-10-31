@@ -67,3 +67,9 @@ def test_run_without_provider_fails_honestly(client: TestClient) -> None:
     final_state = client.get(f"/api/jobs/{created['id']}").json()
     assert final_state["status"] == "failed"
     assert "No AI providers are configured" in final_state["error"]
+
+
+def test_footage_search_requires_pexels_key(client: TestClient) -> None:
+    response = client.get("/api/assets/search?query=ancient%20rome")
+    assert response.status_code == 503
+    assert "PEXELS_API_KEY" in response.json()["detail"]
