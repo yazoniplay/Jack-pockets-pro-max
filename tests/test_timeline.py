@@ -128,7 +128,7 @@ def test_footage_source_credit_is_passed_to_renderer() -> None:
     assert scene["sourceCredit"] == "Footage: Example Creator · CC BY 4.0"
 
 
-def test_original_score_is_enabled_by_default_and_passed_to_renderer() -> None:
+def test_original_score_is_enabled_by_default_and_deferred_to_render_assembly() -> None:
     manifest = TimelineManifest(
         title="A documentary",
         scenes=[{"id": "intro", "kind": "title", "duration_frames": 90, "title": "Intro"}],
