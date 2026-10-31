@@ -137,6 +137,11 @@ async def run_render_job(job_id: str, manifest_data: dict) -> None:
             "frame_rate": report.frame_rate,
             "size_bytes": report.size_bytes,
             "validated": True,
+            "music_mode": (
+                "generated_original_ambient"
+                if manifest.music_enabled and not manifest.music_file
+                else "provided_audio" if manifest.music_enabled else "disabled"
+            ),
         }
         payload["next_stage"] = "complete"
         update_job(
