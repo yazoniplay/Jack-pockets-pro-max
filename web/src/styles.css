@@ -186,3 +186,5 @@ textarea::placeholder,input::placeholder{color:#596170}
 .beat-copy small{font:8px 'DM Mono',monospace;color:#737f8e;margin-top:5px;overflow-wrap:anywhere}
 .storyboard-beat button{display:flex;align-items:center;gap:6px;padding:7px 9px;border:1px solid #36594e;background:#172722;color:#8cddc2;border-radius:5px;font-size:9px;white-space:nowrap}
 @media(max-width:760px){.storyboard-beat{grid-template-columns:58px minmax(0,1fr);gap:8px}.storyboard-beat button{grid-column:2;justify-self:start}.storyboard-heading{align-items:flex-start;gap:8px;flex-direction:column}}
+
+.candidate-fit{display:block;margin-top:6px;color:#82cdb7;font:8px 'DM Mono',monospace;letter-spacing:.25px;line-height:1.6}
