@@ -79,6 +79,26 @@ async def run_narration_job(job_id: str, text: str, voice: str, fps: int) -> Non
                 for item in result.captions
             ],
         }
+        try:
+            from .storyboard import generate_storyboard
+
+            providers = configured_providers()
+            storyboard_provider = (
+                providers.get("anthropic") or providers.get("openai") or providers.get("gemini")
+            )
+            if storyboard_provider:
+                storyboard = await generate_storyboard(
+                    text, result.duration_frames, fps, storyboard_provider
+                )
+                payload["storyboard"] = storyboard.model_dump(mode="json")
+            else:
+                payload["storyboard_warning"] = (
+                    "No model provider is configured to create the visual storyboard."
+                )
+        except Exception as exc:  # noqa: BLE001 - storyboard failure must not discard narration
+            payload["storyboard_warning"] = (
+                f"Visual storyboard unavailable: {type(exc).__name__}: {str(exc)[:300]}"
+            )
         payload["next_stage"] = "visual_timeline_assembly"
         update_job(
             job_id,
