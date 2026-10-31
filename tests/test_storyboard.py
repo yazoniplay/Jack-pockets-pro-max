@@ -68,7 +68,7 @@ def test_storyboard_generation_validates_and_preserves_exact_duration() -> None:
 def test_storyboard_rejects_overlapping_beats() -> None:
     payload = valid_payload()
     payload["beats"][1]["start_frame"] = 250
-    with pytest.raises(ValidationError, match="cannot overlap"):
+    with pytest.raises(ValidationError, match="contiguous"):
         StoryboardPlan.model_validate(payload)
 
 
