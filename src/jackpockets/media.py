@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import os
 import shutil
 import subprocess
 from dataclasses import dataclass
@@ -73,6 +74,69 @@ def probe_media(path: str | Path, timeout_seconds: int = 30) -> MediaReport:
         frame_rate=rate,
         size_bytes=target.stat().st_size,
     )
+
+
+def master_audio_track(path: str | Path, timeout_seconds: int = 300) -> MediaReport:
+    """Apply a transparent peak limiter while stream-copying the rendered video."""
+    target = Path(path).expanduser().resolve()
+    if not target.is_file():
+        raise MediaError("Rendered video is missing before audio mastering.")
+    ffmpeg = require_tool("ffmpeg")
+    temporary = target.with_name(f"{target.stem}.audio-master{target.suffix}")
+    try:
+        result = subprocess.run(
+            [
+                ffmpeg,
+                "-y",
+                "-hide_banner",
+                "-loglevel",
+                "error",
+                "-i",
+                str(target),
+                "-map",
+                "0:v:0",
+                "-map",
+                "0:a:0",
+                "-map_metadata",
+                "0",
+                "-c:v",
+                "copy",
+                "-af",
+                "alimiter=limit=0.85:attack=5:release=50:level=false",
+                "-c:a",
+                "aac",
+                "-b:a",
+                "192k",
+                "-movflags",
+                "+faststart",
+                str(temporary),
+            ],
+            capture_output=True,
+            text=True,
+            timeout=timeout_seconds,
+            check=True,
+        )
+    except subprocess.TimeoutExpired as exc:
+        temporary.unlink(missing_ok=True)
+        raise MediaError("Final audio mastering exceeded the configured time limit.") from exc
+    except subprocess.CalledProcessError as exc:
+        temporary.unlink(missing_ok=True)
+        detail = (exc.stderr or exc.stdout or "")[-1500:]
+        raise MediaError(f"Final audio mastering failed: {detail}") from exc
+
+    if not temporary.is_file() or temporary.stat().st_size <= 0:
+        temporary.unlink(missing_ok=True)
+        raise MediaError("Final audio mastering produced an empty video.")
+    mastered = probe_media(temporary)
+    original = probe_media(target)
+    if not mastered.video_codec or not mastered.audio_codec:
+        temporary.unlink(missing_ok=True)
+        raise MediaError("Mastered video is missing its video or audio stream.")
+    if abs(mastered.duration_seconds - original.duration_seconds) > 0.15:
+        temporary.unlink(missing_ok=True)
+        raise MediaError("Audio mastering changed the documentary runtime unexpectedly.")
+    os.replace(temporary, target)
+    return probe_media(target)
 
 
 def validate_render(
