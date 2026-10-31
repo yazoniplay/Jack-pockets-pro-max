@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
+import re
 from urllib.parse import urlparse
 
 import httpx
@@ -28,6 +29,7 @@ class FootageCandidate:
     duration_seconds: int
     license_name: str
     license_url: str
+    tags: tuple[str, ...] = field(default_factory=tuple)
 
 
 def choose_video_file(files: list[dict]) -> dict | None:
@@ -91,6 +93,62 @@ def rank_footage_candidates(
     return sorted(ranked, key=lambda item: item["quality_score"], reverse=True)
 
 
+_TOKEN_PATTERN = re.compile(r"[a-z0-9]{3,}", re.IGNORECASE)
+_STOPWORDS = {"about", "after", "again", "also", "among", "because", "before", "being", "between", "could", "during", "from", "have", "into", "more", "most", "other", "over", "same", "some", "than", "that", "their", "there", "these", "they", "this", "those", "through", "under", "very", "what", "when", "where", "which", "while", "with", "would", "your", "viewer", "footage", "shot", "visual", "scene", "documentary"}
+
+def _tokens(value: str) -> set[str]:
+    return {token.lower() for token in _TOKEN_PATTERN.findall(value) if token.lower() not in _STOPWORDS}
+
+def semantic_relevance(candidate: FootageCandidate, narration_excerpt: str, visual_description: str, visual_query: str) -> dict:
+    """Score metadata evidence against the spoken meaning and intended visual."""
+    intent = _tokens(" ".join((narration_excerpt, visual_description, visual_query)))
+    tag_tokens = _tokens(" ".join(candidate.tags))
+    title_tokens = _tokens(candidate.title)
+    slug = candidate.page_url.rstrip("/").rsplit("/", 1)[-1]
+    url_tokens = _tokens(slug)
+    metadata = tag_tokens | title_tokens | url_tokens
+    if not intent or not metadata:
+        return {"score": 0, "notes": ["Provider supplied insufficient descriptive metadata; visual relevance is unverified"], "evidence": "insufficient"}
+    tag_hits = intent & tag_tokens
+    title_hits = intent & (title_tokens | url_tokens)
+    weighted_hits = len(tag_hits) * 2.0 + len(title_hits)
+    score = round(min(100, weighted_hits / max(1.0, len(intent) * 2.0) * 100))
+    notes = []
+    if tag_hits: notes.append("Tags match: " + ", ".join(sorted(tag_hits)[:5]))
+    if title_hits: notes.append("Title/context match: " + ", ".join(sorted(title_hits)[:5]))
+    if not notes: notes.append("No matching topic terms found in provider metadata")
+    return {"score": score, "notes": notes, "evidence": "metadata" if tag_tokens else "limited_metadata"}
+
+def rank_editorial_candidates(candidates: list[FootageCandidate], narration_excerpt: str, visual_description: str, visual_query: str, target_duration_seconds: float | None = None) -> list[dict]:
+    """Combine explainable metadata relevance with independent technical fit."""
+    technical = rank_footage_candidates(candidates, target_duration_seconds)
+    by_id = {item.provider_id: item for item in candidates}
+    ranked = []
+    for item in technical:
+        relevance = semantic_relevance(by_id[item["provider_id"]], narration_excerpt, visual_description, visual_query)
+        item["semantic_score"] = relevance["score"]
+        item["semantic_notes"] = relevance["notes"]
+        item["semantic_evidence"] = relevance["evidence"]
+        item["editorial_score"] = round(relevance["score"] * 0.7 + item["quality_score"] * 0.3)
+        ranked.append(item)
+    return sorted(ranked, key=lambda item: item["editorial_score"], reverse=True)
+
+def diversify_storyboard_recommendations(recommendations: list[dict]) -> list[dict]:
+    """Choose distinct primary clips across beats without hiding alternatives."""
+    used: set[str] = set()
+    ordered = sorted(recommendations, key=lambda item: max((candidate.get("editorial_score", 0) for candidate in item.get("results", [])), default=0), reverse=True)
+    for item in ordered:
+        available = [candidate for candidate in item.get("results", []) if candidate.get("provider_id") not in used]
+        if available:
+            primary = available[0]
+            used.add(primary["provider_id"])
+            item["recommended_provider_id"] = primary["provider_id"]
+            item["diversity_note"] = "Unique clip selected for this beat"
+        else:
+            item["recommended_provider_id"] = None
+            item["diversity_note"] = "All returned clips overlap with stronger beat matches"
+    return recommendations
+
 class PexelsClient:
     LICENSE_URL = "https://www.pexels.com/license/"
 
@@ -132,6 +190,7 @@ class PexelsClient:
                     duration_seconds=int(video.get("duration") or 0),
                     license_name="Pexels License",
                     license_url=self.LICENSE_URL,
+                    tags=tuple(str(tag.get("name", "")) if isinstance(tag, dict) else str(tag) for tag in video.get("tags", []) if tag)[:20],
                 )
             )
         return candidates
