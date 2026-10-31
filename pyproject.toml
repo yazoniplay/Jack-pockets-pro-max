@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "jack-pockets-pro-max"
-version = "0.1.0"
+version = "0.2.0"
 description = "AI-assisted documentary video generation pipeline"
 readme = "README.md"
 requires-python = ">=3.11"
@@ -14,12 +14,12 @@ dependencies = [
   "pydantic>=2.8,<3",
   "pydantic-settings>=2.4,<3",
   "python-dotenv>=1.0,<2",
+  "httpx>=0.27,<1",
 ]
 
 [project.optional-dependencies]
 dev = [
   "pytest>=8,<9",
-  "httpx>=0.27,<1",
   "ruff>=0.6,<1",
 ]
 
