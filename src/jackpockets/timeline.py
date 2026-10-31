@@ -15,7 +15,17 @@ class TimelineAsset(BaseModel):
     creator: str | None = None
     license_name: str
     license_url: HttpUrl | None = None
-    attribution_required: bool = True
+    attribution_required: bool = False
+
+    @field_validator("local_file")
+    @classmethod
+    def require_safe_relative_asset_path(cls, value: str) -> str:
+        if chr(92) in value or chr(0) in value:
+            raise ValueError("Asset paths must use safe POSIX separators.")
+        path = PurePosixPath(value)
+        if path.is_absolute() or any(part in {"", ".", ".."} for part in path.parts):
+            raise ValueError("Asset paths must be relative and cannot traverse directories.")
+        return value
 
 
 class TimelineScene(BaseModel):
