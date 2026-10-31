@@ -6,15 +6,17 @@ from contextlib import asynccontextmanager
 from uuid import uuid4
 
 from fastapi import BackgroundTasks, FastAPI, HTTPException, Query
+import httpx
 from fastapi.middleware.cors import CORSMiddleware
 
 from . import __version__
+from .assets import AssetError, PexelsClient
 from .config import get_settings
 from .providers import configured_providers
-from .schemas import CreateJobRequest, JobSummary
+from .schemas import CreateJobRequest, JobSummary, NarrationRequest
 from .storage import create_job as persist_job
 from .storage import get_job, initialize_database, list_jobs
-from .worker import run_job
+from .worker import run_job, run_narration_job
 
 
 @asynccontextmanager
@@ -95,3 +97,48 @@ async def start_job(job_id: str, background_tasks: BackgroundTasks) -> dict:
         raise HTTPException(status_code=409, detail=f"Job cannot run from state {job['status']}.")
     background_tasks.add_task(run_job, job_id, job["brief"])
     return job
+
+
+@app.get("/api/assets/search")
+async def search_footage(
+    query: str = Query(min_length=1, max_length=160),
+    limit: int = Query(default=12, ge=1, le=30),
+) -> dict:
+    try:
+        client = PexelsClient()
+        candidates = await client.search_videos(query, per_page=limit)
+    except AssetError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+    except httpx.HTTPError as exc:
+        raise HTTPException(status_code=502, detail="Pexels footage search failed.") from exc
+    return {
+        "provider": "pexels",
+        "license": "Pexels License",
+        "results": [candidate.__dict__ for candidate in candidates],
+    }
+
+
+@app.post("/api/jobs/{job_id}/narration", response_model=JobSummary, status_code=202)
+async def start_narration(
+    job_id: str,
+    request: NarrationRequest,
+    background_tasks: BackgroundTasks,
+) -> dict:
+    job = get_job(job_id)
+    if job is None:
+        raise HTTPException(status_code=404, detail="Documentary job not found.")
+    if job["status"] != "needs_review":
+        raise HTTPException(
+            status_code=409,
+            detail="Narration requires a planning result in needs_review state.",
+        )
+    update_job(
+        job_id,
+        "narrating",
+        "narration.started",
+        {"voice": request.voice, "fps": request.fps},
+    )
+    background_tasks.add_task(
+        run_narration_job, job_id, request.text, request.voice, request.fps
+    )
+    return get_job(job_id)
