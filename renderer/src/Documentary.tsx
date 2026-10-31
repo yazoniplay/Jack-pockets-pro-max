@@ -31,6 +31,7 @@ const SceneFrame: React.FC<{ scene: Scene }> = ({ scene }) => {
         <OffthreadVideo
           src={mediaSource(scene.mediaSrc)}
           muted
+          loop
           style={{ width: "100%", height: "100%", objectFit: "cover" }}
         />
       ) : scene.mediaSrc ? (
