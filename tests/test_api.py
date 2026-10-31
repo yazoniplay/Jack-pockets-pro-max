@@ -160,6 +160,8 @@ def test_bulk_storyboard_recommendations_search_each_beat(client: TestClient, mo
     payload = response.json()
     assert payload["searched_beats"] == 2
     assert payload["beats_with_results"] == 2
+    assert payload["visual_evaluated_beats"] == 0
+    assert payload["visual_review_limit"] == 12
     assert [item["beat_id"] for item in payload["recommendations"]] == [
         "beat-01",
         "beat-02",
