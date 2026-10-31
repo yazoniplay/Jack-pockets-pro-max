@@ -27,6 +27,8 @@ async def run_job(job_id: str, brief: dict) -> None:
                 for item in result.contributions
             ],
             "synthesis": result.synthesis,
+            "script_draft": result.script_draft,
+            "script_review": result.script_review,
             "warnings": result.warnings,
             "human_approval_required": True,
             "next_stage": "source_verification_and_script_approval",
