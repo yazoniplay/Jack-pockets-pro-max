@@ -1,6 +1,6 @@
 """Public API response schemas."""
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, HttpUrl
 
 from .models import DocumentaryBrief
 
@@ -28,7 +28,7 @@ class NarrationRequest(BaseModel):
 
 
 class FootageSelectionRequest(BaseModel):
-    provider_id: str = Field(min_length=1, max_length=40)
+    provider_id: str = Field(pattern=r"^\\d{1,20}$")
     title: str = Field(min_length=1, max_length=200)
     creator: str = Field(min_length=1, max_length=120)
     page_url: HttpUrl
