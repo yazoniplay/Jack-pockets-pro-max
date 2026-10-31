@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 from contextlib import asynccontextmanager
 from pathlib import Path
 from uuid import uuid4
@@ -125,6 +126,51 @@ async def search_footage(
         "provider": "pexels",
         "license": "Pexels License",
         "results": rank_footage_candidates(candidates, target_duration_seconds),
+    }
+
+
+@app.post("/api/jobs/{job_id}/assets/recommendations")
+async def recommend_storyboard_footage(job_id: str) -> dict:
+    job = get_job(job_id)
+    if job is None:
+        raise HTTPException(status_code=404, detail="Documentary job not found.")
+    if job["status"] not in {"needs_review", "narrating"}:
+        raise HTTPException(status_code=409, detail="Footage recommendations require editorial review.")
+    storyboard = (job.get("result") or {}).get("storyboard") or {}
+    beats = storyboard.get("beats") or []
+    fps = int(storyboard.get("fps") or 30)
+    if not beats:
+        raise HTTPException(status_code=409, detail="Generate a visual storyboard before searching footage.")
+    client = PexelsClient()
+    semaphore = asyncio.Semaphore(3)
+
+    async def recommend(beat: dict) -> dict:
+        async with semaphore:
+            try:
+                duration = max(1, (int(beat["end_frame"]) - int(beat["start_frame"])) / fps)
+                candidates = await client.search_videos(beat["visual_query"], per_page=8)
+                ranked = rank_footage_candidates(candidates, duration)
+                return {
+                    "beat_id": beat["id"],
+                    "query": beat["visual_query"],
+                    "results": ranked[:5],
+                    "error": None,
+                }
+            except (AssetError, httpx.HTTPError, KeyError, TypeError, ValueError) as exc:
+                return {
+                    "beat_id": beat.get("id", "unknown"),
+                    "query": beat.get("visual_query", ""),
+                    "results": [],
+                    "error": f"{type(exc).__name__}: {str(exc)[:240]}",
+                }
+
+    recommendations = await asyncio.gather(*(recommend(beat) for beat in beats))
+    return {
+        "provider": "pexels",
+        "license": "Pexels License",
+        "recommendations": recommendations,
+        "searched_beats": len(recommendations),
+        "beats_with_results": sum(bool(item["results"]) for item in recommendations),
     }
 
 
