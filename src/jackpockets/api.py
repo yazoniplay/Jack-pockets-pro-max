@@ -3,10 +3,12 @@
 from __future__ import annotations
 
 from contextlib import asynccontextmanager
+from pathlib import Path
 from uuid import uuid4
 
 import httpx
 from fastapi import BackgroundTasks, FastAPI, HTTPException, Query
+from fastapi.responses import FileResponse
 from fastapi.middleware.cors import CORSMiddleware
 
 from . import __version__
@@ -16,7 +18,8 @@ from .providers import configured_providers
 from .schemas import CreateJobRequest, JobSummary, NarrationRequest
 from .storage import create_job as persist_job
 from .storage import get_job, initialize_database, list_jobs, update_job
-from .worker import run_job, run_narration_job
+from .timeline import TimelineManifest
+from .worker import run_job, run_narration_job, run_render_job
 
 
 @asynccontextmanager
@@ -142,3 +145,47 @@ async def start_narration(
         run_narration_job, job_id, request.text, request.voice, request.fps
     )
     return get_job(job_id)
+
+
+@app.post("/api/jobs/{job_id}/render", response_model=JobSummary, status_code=202)
+async def start_render(
+    job_id: str,
+    manifest: TimelineManifest,
+    background_tasks: BackgroundTasks,
+) -> dict:
+    job = get_job(job_id)
+    if job is None:
+        raise HTTPException(status_code=404, detail="Documentary job not found.")
+    if job["status"] != "needs_review":
+        raise HTTPException(
+            status_code=409,
+            detail="Rendering requires a reviewed planning/narration job.",
+        )
+    manifest_data = manifest.model_dump(mode="json")
+    update_job(
+        job_id,
+        "rendering",
+        "render.started",
+        {"scene_count": len(manifest.scenes), "fps": manifest.fps},
+    )
+    background_tasks.add_task(run_render_job, job_id, manifest_data)
+    return get_job(job_id)
+
+
+@app.get("/api/jobs/{job_id}/video")
+def download_video(job_id: str) -> FileResponse:
+    job = get_job(job_id)
+    if job is None:
+        raise HTTPException(status_code=404, detail="Documentary job not found.")
+    output_path = (job.get("result") or {}).get("render", {}).get("output_path")
+    if job["status"] != "completed" or not output_path:
+        raise HTTPException(status_code=409, detail="The documentary render is not complete.")
+    target = Path(output_path).resolve()
+    render_dir = (Path(__file__).resolve().parents[2] / "renders").resolve()
+    if not target.is_relative_to(render_dir) or not target.is_file():
+        raise HTTPException(status_code=404, detail="Rendered video file is unavailable.")
+    return FileResponse(
+        target,
+        media_type="video/mp4",
+        filename=f"jack-pockets-{job_id}.mp4",
+    )
