@@ -72,7 +72,7 @@ async def synthesize_narration(
                         WordCaption(start, end, str(chunk.get("text", "")).strip())
                     )
                     last_end = max(last_end, end)
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - convert SDK errors to domain errors
         target.unlink(missing_ok=True)
         raise NarrationError(f"Speech synthesis failed: {type(exc).__name__}: {str(exc)[:300]}") from exc
 
