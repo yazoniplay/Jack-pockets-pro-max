@@ -68,7 +68,6 @@ def estimate_word_captions(text: str, duration_frames: int, fps: int) -> list[Wo
         return []
     weights = [max(1, len(word)) for word in words]
     total_weight = sum(weights)
-    cursor = 0
     timed_words: list[WordCaption] = []
     cumulative = 0
     for word, weight in zip(words, weights):
@@ -78,7 +77,6 @@ def estimate_word_captions(text: str, duration_frames: int, fps: int) -> list[Wo
         timed_words.append(
             WordCaption(start, max(start + 1, end), word)
         )
-        cursor = end
     return timed_words
 
 
