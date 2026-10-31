@@ -109,8 +109,9 @@ async def download_pexels_video(
     target.parent.mkdir(parents=True, exist_ok=True)
     size = 0
     try:
-        async with httpx.AsyncClient(timeout=120, follow_redirects=True) as client:
-            async with client.stream("GET", candidate.download_url) as response:
+        async with httpx.AsyncClient(timeout=120, follow_redirects=True) as client, client.stream(
+            "GET", candidate.download_url
+        ) as response:
                 response.raise_for_status()
                 final_host = urlparse(str(response.url)).hostname or ""
                 if not (final_host == "pexels.com" or final_host.endswith(".pexels.com")):
@@ -124,7 +125,7 @@ async def download_pexels_video(
                         if size > max_bytes:
                             raise AssetError("Footage file exceeded the download limit.")
                         output.write(chunk)
-    except Exception:  # noqa: BLE001 - clean partial download before propagating
+    except Exception:
         target.unlink(missing_ok=True)
         raise
     if size == 0:
