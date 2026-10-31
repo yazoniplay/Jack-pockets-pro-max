@@ -109,7 +109,7 @@ async def download_pexels_video(
     target.parent.mkdir(parents=True, exist_ok=True)
     size = 0
     try:
-        async with httpx.AsyncClient(timeout=120, follow_redirects=True) as client, client.stream(
+        async with httpx.AsyncClient(timeout=120, follow_redirects=False) as client, client.stream(
             "GET", candidate.download_url
         ) as response:
                 response.raise_for_status()
