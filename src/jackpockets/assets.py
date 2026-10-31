@@ -144,6 +144,8 @@ def diversify_storyboard_recommendations(recommendations: list[dict]) -> list[di
             used.add(primary["provider_id"])
             item["recommended_provider_id"] = primary["provider_id"]
             item["diversity_note"] = "Unique clip selected for this beat"
+            for candidate in item.get("results", []):
+                candidate["recommended_for_beat"] = candidate["provider_id"] == primary["provider_id"]
         else:
             item["recommended_provider_id"] = None
             item["diversity_note"] = "All returned clips overlap with stronger beat matches"
