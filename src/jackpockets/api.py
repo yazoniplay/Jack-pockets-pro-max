@@ -18,6 +18,8 @@ from .assets import (
     FootageCandidate,
     PexelsClient,
     download_pexels_video,
+    diversify_storyboard_recommendations,
+    rank_editorial_candidates,
     rank_footage_candidates,
 )
 from .config import get_settings
@@ -114,6 +116,8 @@ async def search_footage(
     query: str = Query(min_length=1, max_length=160),
     limit: int = Query(default=12, ge=1, le=30),
     target_duration_seconds: float | None = Query(default=None, ge=1, le=120),
+    narration_excerpt: str = Query(default="", max_length=500),
+    visual_description: str = Query(default="", max_length=180),
 ) -> dict:
     try:
         client = PexelsClient()
@@ -125,7 +129,13 @@ async def search_footage(
     return {
         "provider": "pexels",
         "license": "Pexels License",
-        "results": rank_footage_candidates(candidates, target_duration_seconds),
+        "results": (
+            rank_editorial_candidates(
+                candidates, narration_excerpt, visual_description, query, target_duration_seconds
+            )
+            if narration_excerpt or visual_description
+            else rank_footage_candidates(candidates, target_duration_seconds)
+        ),
     }
 
 
@@ -152,7 +162,13 @@ async def recommend_storyboard_footage(job_id: str) -> dict:
             try:
                 duration = max(1, (int(beat["end_frame"]) - int(beat["start_frame"])) / fps)
                 candidates = await client.search_videos(beat["visual_query"], per_page=8)
-                ranked = rank_footage_candidates(candidates, duration)
+                ranked = rank_editorial_candidates(
+                    candidates,
+                    beat.get("narration_excerpt", ""),
+                    beat.get("visual_description", ""),
+                    beat["visual_query"],
+                    duration,
+                )
                 return {
                     "beat_id": beat["id"],
                     "query": beat["visual_query"],
@@ -167,7 +183,9 @@ async def recommend_storyboard_footage(job_id: str) -> dict:
                     "error": f"{type(exc).__name__}: {str(exc)[:240]}",
                 }
 
-    recommendations = await asyncio.gather(*(recommend(beat) for beat in beats))
+    recommendations = diversify_storyboard_recommendations(
+        list(await asyncio.gather(*(recommend(beat) for beat in beats)))
+    )
     return {
         "provider": "pexels",
         "license": "Pexels License",
