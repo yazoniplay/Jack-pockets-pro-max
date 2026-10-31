@@ -19,7 +19,7 @@
 - Remotion 1920x1080 / 30fps composition with cinematic crossfades, slow camera movement, animated captions, narration and music.
 - Original procedural ambient soundtrack generation with stereo modulation, fade envelopes, loudness limiting and caption-aware narration ducking; no stock track is downloaded.
 - FFprobe-based MP4 validation and a guarded video retrieval endpoint.
-- GitHub Actions CI for Python tests/lint and renderer TypeScript checks.
+- GitHub Actions CI for Python tests/lint plus dashboard and Remotion builds.\n- Manual GitHub Actions documentary workflow that researches, scripts, narrates, finds and downloads licensed footage, assembles the timeline, renders a 1080p MP4, validates it with FFprobe, and uploads the finished video as an artifact.
 
 ## Documentary workflow
 1. Create a job with topic, target length, language, audience and tone.
