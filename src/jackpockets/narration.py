@@ -26,6 +26,38 @@ class NarrationResult:
     fps: int
 
 
+
+def group_word_captions(
+    words: list[WordCaption],
+    fps: int,
+    max_words: int = 7,
+    max_duration_seconds: float = 2.8,
+) -> list[WordCaption]:
+    """Turn word timings into readable phrase captions without losing timing."""
+    grouped: list[WordCaption] = []
+    pending: list[WordCaption] = []
+
+    def flush() -> None:
+        if pending:
+            grouped.append(
+                WordCaption(
+                    pending[0].start_frame,
+                    pending[-1].end_frame,
+                    " ".join(item.text for item in pending if item.text).strip(),
+                )
+            )
+            pending.clear()
+
+    for word in words:
+        pending.append(word)
+        elapsed = (pending[-1].end_frame - pending[0].start_frame) / fps
+        closes_sentence = word.text.rstrip().endswith((".", "?", "!", ",", ";", ":"))
+        if len(pending) >= max_words or elapsed >= max_duration_seconds or closes_sentence:
+            flush()
+    flush()
+    return grouped
+
+
 async def synthesize_narration(
     text: str,
     output_path: str | Path,
@@ -57,7 +89,7 @@ async def synthesize_narration(
     communicate = edge_tts.Communicate(
         text, voice, rate=rate, volume=volume, pitch=pitch
     )
-    captions = []
+    word_captions = []
     last_end = 0
     try:
         with target.open("wb") as audio_file:
@@ -68,7 +100,7 @@ async def synthesize_narration(
                     start = max(0, round(chunk["offset"] / 10_000_000 * fps))
                     duration = max(1, round(chunk["duration"] / 10_000_000 * fps))
                     end = start + duration
-                    captions.append(
+                    word_captions.append(
                         WordCaption(start, end, str(chunk.get("text", "")).strip())
                     )
                     last_end = max(last_end, end)
@@ -78,4 +110,5 @@ async def synthesize_narration(
 
     if not target.is_file() or target.stat().st_size == 0:
         raise NarrationError("Speech provider returned no audio.")
+    captions = group_word_captions(word_captions, fps)
     return NarrationResult(str(target), last_end, captions, voice, fps)
