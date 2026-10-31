@@ -4,8 +4,6 @@ The workflow deliberately keeps all generated media in the runner and publishes 
 as a GitHub Actions artifact; it does not require a continuously running web server.
 """
 
-from __future__ import annotations
-
 import argparse
 import asyncio
 import json
