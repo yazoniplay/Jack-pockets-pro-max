@@ -124,7 +124,7 @@ async def download_pexels_video(
                         if size > max_bytes:
                             raise AssetError("Footage file exceeded the download limit.")
                         output.write(chunk)
-    except Exception:
+    except Exception:  # noqa: BLE001 - clean partial download before propagating
         target.unlink(missing_ok=True)
         raise
     if size == 0:
