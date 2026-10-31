@@ -16,7 +16,7 @@ const mediaSource = (src: string) =>
 
 const SceneFrame: React.FC<{ scene: Scene }> = ({ scene }) => {
   const frame = useCurrentFrame();
-  const opacity = interpolate(frame, [0, 12, scene.durationInFrames - 12, scene.durationInFrames], [0, 1, 1, 0], {
+  const opacity = interpolate(frame, [0, 12], [0, 1], {
     extrapolateLeft: "clamp",
     extrapolateRight: "clamp",
   });
@@ -24,7 +24,9 @@ const SceneFrame: React.FC<{ scene: Scene }> = ({ scene }) => {
     extrapolateLeft: "clamp",
     extrapolateRight: "clamp",
   });
-  const cameraScale = interpolate(frame, [0, Math.max(1, scene.durationInFrames)], [1.035, 1.105]);
+  const cameraScale = interpolate(frame, [0, Math.max(1, scene.durationInFrames)], [1.035, 1.105], {
+    extrapolateRight: "clamp",
+  });
   const cameraDrift = interpolate(frame, [0, Math.max(1, scene.durationInFrames)], [-0.7, 0.7]);
 
   return (
@@ -134,11 +136,14 @@ const CaptionFrame: React.FC<{ text: string }> = ({ text }) => {
 
 export const Documentary: React.FC<DocumentaryProps> = (props) => {
   let cursor = 0;
-  const sceneSequences = props.scenes.map((scene) => {
-    const from = cursor;
+  const transitionFrames = 12;
+  const sceneSequences = props.scenes.map((scene, index) => {
+    const overlap = index === 0 ? 0 : transitionFrames;
+    const from = Math.max(0, cursor - overlap);
+    const durationInFrames = scene.durationInFrames + overlap;
     cursor += scene.durationInFrames;
     return (
-      <Sequence key={scene.id} from={from} durationInFrames={scene.durationInFrames}>
+      <Sequence key={scene.id} from={from} durationInFrames={durationInFrames}>
         <SceneFrame scene={scene} />
       </Sequence>
     );
