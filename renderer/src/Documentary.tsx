@@ -137,6 +137,14 @@ const CaptionFrame: React.FC<{ text: string }> = ({ text }) => {
 };
 
 export const Documentary: React.FC<DocumentaryProps> = (props) => {
+  const compositionFrame = useCurrentFrame();
+  const totalFrames = props.scenes.reduce((total, scene) => total + scene.durationInFrames, 0);
+  const endingFade = interpolate(
+    compositionFrame,
+    [Math.max(0, totalFrames - 45), totalFrames],
+    [0, 1],
+    { extrapolateLeft: "clamp", extrapolateRight: "clamp" },
+  );
   let cursor = 0;
   const transitionFrames = 12;
   const sceneSequences = props.scenes.map((scene, index) => {
@@ -186,6 +194,13 @@ export const Documentary: React.FC<DocumentaryProps> = (props) => {
           <CaptionFrame text={caption.text} />
         </Sequence>
       ))}
+      <AbsoluteFill
+        style={{
+          backgroundColor: "#000",
+          opacity: endingFade,
+          pointerEvents: "none",
+        }}
+      />
     </AbsoluteFill>
   );
 };
