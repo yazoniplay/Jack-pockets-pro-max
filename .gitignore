@@ -24,3 +24,8 @@ renders/
 *.wav
 *.mp3
 .DS_Store
+
+data/
+renders/
+renderer/.generated/
+renderer/public/assets/
