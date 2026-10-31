@@ -9,9 +9,7 @@ import argparse
 import asyncio
 import json
 import os
-import re
 import sys
-from datetime import UTC, datetime
 from pathlib import Path
 from uuid import uuid4
 
@@ -24,9 +22,7 @@ from jackpockets.assets import (
 )
 from jackpockets.config import get_settings
 from jackpockets.models import DocumentaryBrief
-from jackpockets.narration import synthesize_narration
 from jackpockets.providers import configured_providers
-from jackpockets.rendering import render_documentary
 from jackpockets.storage import create_job, initialize_database, update_job
 from jackpockets.timeline import (
     TimelineAsset,
@@ -40,11 +36,6 @@ from jackpockets.worker import run_job, run_narration_job, run_render_job
 ROOT = Path(__file__).resolve().parents[1]
 FPS = 30
 VISUAL_REVIEW_LIMIT = 12
-
-
-def safe_slug(value: str) -> str:
-    slug = re.sub(r"[^a-z0-9]+", "-", value.lower()).strip("-")
-    return (slug[:64] or "documentary").strip("-")
 
 
 def write_srt(captions: list[dict], destination: Path, fps: int) -> None:
