@@ -7,6 +7,36 @@ from .providers import configured_providers
 from .storage import claim_job, get_job, update_job
 
 
+async def generate_storyboard_with_fallback(
+    script: str, duration_frames: int, fps: int, providers: dict
+):
+    """Try each configured model so one provider's formatting failure cannot stop editing."""
+    from .storyboard import generate_storyboard
+
+    warnings: list[str] = []
+    ordered = [
+        providers[name]
+        for name in ("groq", "gemini", "ollama")
+        if name in providers
+    ]
+    for provider in ordered:
+        try:
+            plan = await generate_storyboard(script, duration_frames, fps, provider)
+            if warnings:
+                warnings.append(
+                    f"Storyboard fallback succeeded with {provider.name}."
+                )
+            return plan, warnings
+        except Exception as exc:  # noqa: BLE001 - continue to the next configured provider
+            warnings.append(
+                f"{provider.name} storyboard attempt failed: "
+                f"{type(exc).__name__}: {str(exc)[:300]}"
+            )
+    if not ordered:
+        warnings.append("No model provider is configured to create the visual storyboard.")
+    return None, warnings
+
+
 async def run_job(job_id: str, brief: dict) -> None:
     if not claim_job(job_id):
         return
@@ -79,32 +109,27 @@ async def run_narration_job(job_id: str, text: str, voice: str, fps: int) -> Non
                 for item in result.captions
             ],
         }
-        try:
-            from .storyboard import generate_storyboard
-
-            providers = configured_providers()
-            storyboard_provider = (
-                providers.get("groq") or providers.get("gemini") or providers.get("ollama")
-            )
-            if storyboard_provider:
-                storyboard = await generate_storyboard(
-                    text, result.duration_frames, fps, storyboard_provider
-                )
-                payload["storyboard"] = storyboard.model_dump(mode="json")
-            else:
-                payload["storyboard_warning"] = (
-                    "No model provider is configured to create the visual storyboard."
-                )
-        except Exception as exc:  # noqa: BLE001 - storyboard failure must not discard narration
-            payload["storyboard_warning"] = (
-                f"Visual storyboard unavailable: {type(exc).__name__}: {str(exc)[:300]}"
-            )
+        providers = configured_providers()
+        storyboard, storyboard_warnings = await generate_storyboard_with_fallback(
+            text, result.duration_frames, fps, providers
+        )
+        if storyboard:
+            payload["storyboard"] = storyboard.model_dump(mode="json")
+        else:
+            payload["storyboard"] = {"beats": []}
+        if storyboard_warnings:
+            payload["storyboard_warning"] = " | ".join(storyboard_warnings)
         payload["next_stage"] = "visual_timeline_assembly"
         update_job(
             job_id,
             "needs_review",
             "narration.completed",
-            {"voice": voice, "caption_count": len(result.captions)},
+            {
+                "voice": voice,
+                "caption_count": len(result.captions),
+                "storyboard_beats": len(storyboard.beats) if storyboard else 0,
+                "storyboard_warnings": storyboard_warnings,
+            },
             result=payload,
         )
     except Exception as exc:  # noqa: BLE001 - persist any speech pipeline failure
