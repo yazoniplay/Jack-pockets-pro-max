@@ -6,7 +6,9 @@
 - Persistent SQLite jobs with an append-only event history.
 - FastAPI API for job creation, status, review stages and outputs.
 - Native REST adapters for Anthropic Claude, Google Gemini and OpenAI.
-- Parallel specialist agents, cross-model critique and executive synthesis.\n- Duration-aware full narration drafting from the editorial synthesis.\n- Independent second-model narration audit with explicit factual-risk feedback.
+- Parallel specialist agents, cross-model critique and executive synthesis.
+- Duration-aware full narration drafting from the editorial synthesis.
+- Independent second-model narration audit with explicit factual-risk feedback.
 - Gemini Google Search grounding for research-stage source discovery; returned grounding URLs are preserved with the agent contribution.
 - Explicit single-provider vs multi-agent labeling. A fallback or solo run is never called collaboration.
 - Pexels stock-footage search and constrained download with creator, source page and license metadata.
