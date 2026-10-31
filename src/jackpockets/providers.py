@@ -127,6 +127,51 @@ class AnthropicProvider(RESTProvider):
         return ModelReply(self.name, self.model, text)
 
 
+class OpenAICompatibleProvider(RESTProvider):
+    """Provider adapter for Ollama and Groq OpenAI-compatible chat APIs."""
+
+    base_url = ""
+
+    def __init__(self, api_key: str | None, model: str, base_url: str):
+        super().__init__(api_key or "", model)
+        self.base_url = base_url.rstrip("/")
+
+    async def generate(self, system: str, prompt: str) -> ModelReply:
+        headers = {"Content-Type": "application/json"}
+        if self.api_key:
+            headers["Authorization"] = f"Bearer {self.api_key}"
+        data = await self._post(
+            f"{self.base_url}/chat/completions",
+            headers,
+            {
+                "model": self.model,
+                "messages": [
+                    {"role": "system", "content": system},
+                    {"role": "user", "content": prompt},
+                ],
+            },
+        )
+        try:
+            text = data["choices"][0]["message"]["content"]
+            if isinstance(text, list):
+                text = "\\n".join(
+                    item.get("text", "") for item in text if isinstance(item, dict)
+                )
+        except (KeyError, IndexError, TypeError) as exc:
+            raise ProviderError(f"{self.name} response did not contain message text.") from exc
+        if not isinstance(text, str) or not text.strip():
+            raise ProviderError(f"{self.name} returned an empty response.")
+        return ModelReply(self.name, self.model, text)
+
+
+class OllamaProvider(OpenAICompatibleProvider):
+    name = "ollama"
+
+
+class GroqProvider(OpenAICompatibleProvider):
+    name = "groq"
+
+
 class GeminiProvider(RESTProvider):
     name = "gemini"
 
@@ -144,7 +189,7 @@ class GeminiProvider(RESTProvider):
             {
                 "systemInstruction": {"parts": [{"text": system}]},
                 "contents": [{"role": "user", "parts": parts}],
-                "generationConfig": {"temperature": 0.1, "maxOutputTokens": 2500, "responseMimeType": "application/json"},
+                "generationConfig": {"maxOutputTokens": 2500, "responseMimeType": "application/json"},
             },
         )
         try:
@@ -160,7 +205,7 @@ class GeminiProvider(RESTProvider):
         payload = {
             "systemInstruction": {"parts": [{"text": system}]},
             "contents": [{"role": "user", "parts": [{"text": prompt}]}],
-            "generationConfig": {"temperature": 0.3, "maxOutputTokens": 5000},
+            "generationConfig": {"maxOutputTokens": 5000},
         }
         if grounded:
             payload["tools"] = [{"google_search": {}}]
@@ -191,12 +236,16 @@ class GeminiProvider(RESTProvider):
 def configured_providers() -> dict[str, LLMProvider]:
     settings = get_settings()
     providers: dict[str, LLMProvider] = {}
-    if settings.anthropic_api_key:
-        providers["anthropic"] = AnthropicProvider(
-            settings.anthropic_api_key, settings.anthropic_model
-        )
     if settings.gemini_api_key:
         providers["gemini"] = GeminiProvider(settings.gemini_api_key, settings.gemini_model)
-    if settings.openai_api_key:
-        providers["openai"] = OpenAIProvider(settings.openai_api_key, settings.openai_model)
+    if settings.ollama_api_key or settings.ollama_base_url.startswith(
+        ("http://localhost", "http://127.0.0.1")
+    ):
+        providers["ollama"] = OllamaProvider(
+            settings.ollama_api_key, settings.ollama_model, settings.ollama_base_url
+        )
+    if settings.groq_api_key:
+        providers["groq"] = GroqProvider(
+            settings.groq_api_key, settings.groq_model, settings.groq_base_url
+        )
     return providers
