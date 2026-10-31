@@ -40,6 +40,14 @@ Renderer setup in a second terminal:
     npm install
     npm run typecheck
 
+Dashboard setup in a third terminal:
+    cd web
+    npm install
+    cp .env.example .env
+    npm run dev
+
+Open http://127.0.0.1:5173. The dashboard connects to the API at VITE_API_BASE_URL.
+
 API docs: http://127.0.0.1:8000/docs
 
 ## Provider configuration and costs
