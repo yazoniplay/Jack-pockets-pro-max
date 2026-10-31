@@ -19,3 +19,9 @@ class JobSummary(BaseModel):
     result: dict | None = None
     error: str | None = None
     events: list[dict] = Field(default_factory=list)
+
+
+class NarrationRequest(BaseModel):
+    text: str = Field(min_length=1, max_length=100000)
+    voice: str = Field(default="en-US-AriaNeural", min_length=3, max_length=100)
+    fps: int = Field(default=30, ge=24, le=60)
