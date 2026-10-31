@@ -13,6 +13,7 @@ export type Scene = {
   mediaSrc?: string;
   mediaType?: "image" | "video";
   eyebrow?: string;
+  sourceCredit?: string;
 };
 
 export type DocumentaryProps = {
