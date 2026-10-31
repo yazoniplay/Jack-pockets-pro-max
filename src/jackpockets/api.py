@@ -74,7 +74,7 @@ def provider_status() -> dict:
             for name, provider in providers.items()
         ],
         "collaboration_ready": len(providers) >= 2,
-        "note": "ChatGPT app access does not supply an OpenAI API key.",
+        "note": "Gemini and Groq require API keys. Ollama supports a hosted API key or a reachable local OpenAI-compatible endpoint.",
     }
 
 
