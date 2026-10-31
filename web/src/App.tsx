@@ -9,9 +9,13 @@ const API = import.meta.env.VITE_API_BASE_URL || "http://127.0.0.1:8000";
 
 type EventItem = { type: string; created_at: string; payload: Record<string, unknown> };
 type Asset = {
+  provider_id: string; title: string; creator: string; source_url: string;
+  local_file: string; width: number; height: number; duration_seconds: number;
+  license_name: string; license_url: string;
+};
+type Candidate = {
   provider_id: string; title: string; creator: string; page_url: string;
   download_url: string; width: number; height: number; duration_seconds: number;
-  source_url?: string; local_file?: string; license_name?: string; license_url?: string;
 };
 type Job = {
   id: string; status: string; brief: { topic: string; target_minutes: number; language: string };
@@ -19,7 +23,6 @@ type Job = {
   error: string | null; events: EventItem[];
 };
 type Provider = { name: string; configured: boolean; model: string };
-type Candidate = Omit<Asset, "local_file" | "source_url" | "license_name" | "license_url">;
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(`${API}${path}`, {
