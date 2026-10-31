@@ -4,9 +4,9 @@ from __future__ import annotations
 
 import asyncio
 import json
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
-from .providers import LLMProvider, ModelReply, ProviderError
+from .providers import LLMProvider, ProviderError
 
 
 @dataclass
@@ -16,6 +16,7 @@ class AgentContribution:
     model: str
     draft: str
     critique: str | None = None
+    sources: list[dict[str, str]] = field(default_factory=list)
 
 
 @dataclass
@@ -30,7 +31,8 @@ ROLE_PROMPTS = {
     "research_editor": (
         "You are the research editor. Build a documentary research brief. "
         "Separate established facts, disputed claims, unknowns and research questions. "
-        "Never invent sources, quotes, statistics or URLs. Mark every unsupported claim."
+        "Prefer primary sources and recent authoritative sources. Never invent sources, "
+        "quotes, statistics or URLs. Mark every unsupported claim."
     ),
     "story_architect": (
         "You are a documentary story architect. Design a compelling long-form narrative "
@@ -45,10 +47,14 @@ ROLE_PROMPTS = {
 }
 
 
-async def _safe_generate(provider: LLMProvider, system: str, prompt: str):
+async def _safe_generate(provider: LLMProvider, system: str, prompt: str, grounded: bool = False):
     try:
-        return await provider.generate(system, prompt), None
-    except (ProviderError, Exception) as exc:
+        if grounded and hasattr(provider, "generate_grounded"):
+            reply = await provider.generate_grounded(system, prompt)
+        else:
+            reply = await provider.generate(system, prompt)
+        return reply, None
+    except Exception as exc:
         return None, f"{provider.name}: {type(exc).__name__}: {str(exc)[:300]}"
 
 
@@ -56,7 +62,7 @@ async def run_roundtable(
     providers: dict[str, LLMProvider],
     brief: dict,
 ) -> CollaborationResult:
-    """Run distinct agents in parallel, then have a provider synthesize their work."""
+    """Run specialist agents in parallel, cross-review their work, then synthesize."""
     assignments = [
         ("research_editor", "gemini"),
         ("story_architect", "anthropic"),
@@ -75,7 +81,9 @@ async def run_roundtable(
     )
     results = await asyncio.gather(
         *[
-            _safe_generate(provider, ROLE_PROMPTS[role], prompt)
+            _safe_generate(
+                provider, ROLE_PROMPTS[role], prompt, grounded=(role == "research_editor")
+            )
             for role, provider in available
         ]
     )
@@ -86,40 +94,56 @@ async def run_roundtable(
             warnings.append(error)
         elif reply:
             contributions.append(
-                AgentContribution(role, reply.provider, reply.model, reply.text)
+                AgentContribution(
+                    role, reply.provider, reply.model, reply.text,
+                    sources=getattr(reply, "sources", []),
+                )
             )
     if not contributions:
         raise ProviderError("Every configured agent failed. " + "; ".join(warnings))
 
-    # Cross-review: each successful specialist sees the other specialists' work.
     review_prompt = "\n\n".join(
         f"[{item.role} / {item.provider}]\n{item.draft}" for item in contributions
     )
+    review_assignments = [
+        provider for _, provider in available
+        if any(item.provider == provider.name for item in contributions)
+    ]
     reviews = await asyncio.gather(
         *[
             _safe_generate(
                 provider,
-                "You are an independent reviewer. Critique the supplied work, "
-                "identify contradictions and omissions, and recommend concrete fixes.",
+                "You are an independent reviewer. Critique the supplied work, identify "
+                "contradictions and omissions, and recommend concrete fixes. Do not flatter.",
                 "Review the following agent contributions. Do not merely agree.\n\n"
                 + review_prompt,
             )
-            for _, provider in available
-            if any(item.provider == provider.name for item in contributions)
+            for provider in review_assignments
         ]
     )
-    for item, (reply, error) in zip(contributions, reviews):
-        if reply:
+    for provider, (reply, error) in zip(review_assignments, reviews):
+        item = next((entry for entry in contributions if entry.provider == provider.name), None)
+        if item and reply:
             item.critique = reply.text
         elif error:
             warnings.append(error)
 
-    synthesis_provider = providers.get("openai") or providers.get("anthropic") or providers.get("gemini")
+    synthesis_provider = (
+        providers.get("openai") or providers.get("anthropic") or providers.get("gemini")
+    )
+    source_manifest = [
+        {"agent": item.role, **source}
+        for item in contributions
+        for source in item.sources
+    ]
     synthesis_prompt = (
         "Synthesize the specialist work and critiques into one coherent documentary "
         "development package. Resolve disagreements explicitly. Do not fabricate facts, "
-        "sources or quotations. Keep unresolved issues in a section called OPEN QUESTIONS.\n\n"
+        "sources or quotations. Cite only URLs in the supplied source manifest. Keep "
+        "unresolved issues in a section called OPEN QUESTIONS.\n\n"
         + review_prompt
+        + "\n\nSOURCE MANIFEST\n"
+        + json.dumps(source_manifest, ensure_ascii=False, indent=2)
         + "\n\nCRITIQUES\n"
         + "\n\n".join(
             f"[{item.role}]\n{item.critique or 'No critique returned.'}"
