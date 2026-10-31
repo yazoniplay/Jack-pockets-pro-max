@@ -1,0 +1,150 @@
+name: Generate Documentary
+
+on:
+  workflow_dispatch:
+    inputs:
+      topic:
+        description: Documentary topic
+        required: true
+        type: string
+      target_minutes:
+        description: Target documentary length
+        required: true
+        default: "5"
+        type: choice
+        options:
+          - "3"
+          - "5"
+          - "10"
+          - "15"
+          - "20"
+          - "30"
+      language:
+        description: Narration language code (for example en, sv, ar)
+        required: true
+        default: en
+        type: string
+      audience:
+        description: Intended audience
+        required: true
+        default: general
+        type: string
+      tone:
+        description: Editorial tone
+        required: true
+        default: cinematic, evidence-led
+        type: string
+      voice:
+        description: Edge TTS voice (for example en-US-AriaNeural)
+        required: true
+        default: en-US-AriaNeural
+        type: string
+      additional_context:
+        description: Optional research direction, boundaries or context
+        required: false
+        type: string
+      approve_generated_script:
+        description: I authorize automatic rendering of the AI-generated narration draft
+        required: true
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+
+jobs:
+  generate:
+    name: Research, write, edit and render MP4
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    env:
+      GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+      OLLAMA_API_KEY: ${{ secrets.OLLAMA_API_KEY }}
+      GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+      PEXELS_API_KEY: ${{ secrets.PEXELS_API_KEY }}
+      APPROVE_GENERATED_SCRIPT: ${{ inputs.approve_generated_script }}
+      DATABASE_PATH: data/jackpockets.db
+      REQUEST_TIMEOUT_SECONDS: "120"
+      MAX_PROVIDER_RETRIES: "2"
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: pyproject.toml
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Install FFmpeg and Remotion system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            ffmpeg \
+            fonts-liberation \
+            libasound2t64 \
+            libatk-bridge2.0-0 \
+            libatk1.0-0 \
+            libcairo2 \
+            libgbm1 \
+            libgtk-3-0 \
+            libnss3 \
+            libpango-1.0-0 \
+            libx11-xcb1 \
+            libxcomposite1 \
+            libxdamage1 \
+            libxrandr2
+
+      - name: Install Python pipeline
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev,media]"
+
+      - name: Install renderer and browser
+        working-directory: renderer
+        run: |
+          npm install
+          npm run typecheck
+          npx remotion browser ensure
+
+      - name: Validate Python code
+        run: |
+          ruff check .
+          pytest -q
+
+      - name: Generate complete documentary
+        env:
+          TOPIC: ${{ inputs.topic }}
+          TARGET_MINUTES: ${{ inputs.target_minutes }}
+          LANGUAGE: ${{ inputs.language }}
+          AUDIENCE: ${{ inputs.audience }}
+          TONE: ${{ inputs.tone }}
+          VOICE: ${{ inputs.voice }}
+          ADDITIONAL_CONTEXT: ${{ inputs.additional_context }}
+        run: |
+          python scripts/generate_documentary.py \
+            --topic "$TOPIC" \
+            --target-minutes "$TARGET_MINUTES" \
+            --language "$LANGUAGE" \
+            --audience "$AUDIENCE" \
+            --tone "$TONE" \
+            --voice "$VOICE" \
+            --additional-context "$ADDITIONAL_CONTEXT"
+
+      - name: Upload MP4 and production files
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: jack-pockets-documentary-${{ github.run_number }}
+          path: |
+            renders/*.mp4
+            outputs/
+          if-no-files-found: warn
+          retention-days: 14
