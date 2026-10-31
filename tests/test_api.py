@@ -5,6 +5,7 @@ from fastapi.testclient import TestClient
 
 from jackpockets.api import app
 from jackpockets.config import get_settings
+from jackpockets.storage import update_job
 
 
 @pytest.fixture
@@ -73,3 +74,31 @@ def test_footage_search_requires_pexels_key(client: TestClient) -> None:
     response = client.get("/api/assets/search?query=ancient%20rome")
     assert response.status_code == 503
     assert "PEXELS_API_KEY" in response.json()["detail"]
+
+
+def test_footage_selection_rejects_unknown_storyboard_beat(client: TestClient) -> None:
+    created = client.post(
+        "/api/jobs", json={"brief": {"topic": "The history of the Silk Road"}}
+    ).json()
+    update_job(
+        created["id"],
+        "needs_review",
+        "test.storyboard_ready",
+        result={"storyboard": {"beats": [{"id": "beat-01"}]}},
+    )
+    response = client.post(
+        f"/api/jobs/{created['id']}/assets",
+        json={
+            "provider_id": "12345",
+            "beat_id": "not-a-real-beat",
+            "title": "Test clip",
+            "creator": "Test creator",
+            "page_url": "https://www.pexels.com/video/test/",
+            "media_uri": "https://videos.pexels.com/video-files/test.mp4",
+            "width": 1920,
+            "height": 1080,
+            "duration_seconds": 12,
+        },
+    )
+    assert response.status_code == 400
+    assert response.json()["detail"] == "Unknown storyboard beat id."
