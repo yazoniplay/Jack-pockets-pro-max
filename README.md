@@ -5,7 +5,7 @@
 ## Implemented now
 - Persistent SQLite jobs with an append-only event history.
 - FastAPI API for job creation, status, review stages and outputs.
-- Native REST adapters for Anthropic Claude, Google Gemini and OpenAI.
+- Native REST adapters for Google Gemini, Ollama GPT-OSS and Groq.
 - Parallel specialist agents, cross-model critique and executive synthesis.
 - Duration-aware full narration drafting from the editorial synthesis.
 - Independent second-model narration audit with explicit factual-risk feedback.
@@ -23,7 +23,7 @@
 
 ## Documentary workflow
 1. Create a job with topic, target length, language, audience and tone.
-2. Run the AI roundtable. Gemini researches with Google Search grounding, Claude develops story structure, and OpenAI performs skeptical fact review when all three keys are configured.
+2. Run the AI roundtable. Gemini researches with Google Search grounding, Groq develops story structure and synthesizes the package, and Ollama GPT-OSS performs skeptical fact review when all three providers are configured.
 3. Inspect the agent drafts, critiques, source manifest and synthesis. The system drafts a full narration script and, when another provider is available, runs an independent factual-risk audit. Resolve disputed claims and edit the script; human approval remains mandatory.
 4. Submit the approved narration text. Edge TTS generates MP3 audio and word-boundary captions.
 5. Search Pexels for footage. The editor compares preview frames with each beat's narration and visual intent when a Gemini API key is configured, ranks visual relevance separately from technical fit, and recommends unique clips across adjacent beats. Review and select clips; downloads retain source and license metadata. The renderer can compose an original ambient score locally, or run without music.
@@ -56,7 +56,7 @@ Open http://127.0.0.1:5173. The dashboard connects to the API at VITE_API_BASE_U
 API docs: http://127.0.0.1:8000/docs
 
 ## Provider configuration and costs
-Add API keys to .env. Gemini, Anthropic and OpenAI API calls are billed separately from consumer chat subscriptions. Pexels API access is optional. Edge TTS is an online speech service and requires network access. Rendering is local and requires the Remotion dependencies plus FFmpeg/FFprobe.
+Add API keys to .env. Gemini and Groq API usage may be billed separately from consumer chat subscriptions. Ollama local inference runs on your own hardware; Ollama Cloud requires its own API key and may have usage limits or charges. Pexels API access is optional. Edge TTS is an online speech service and requires network access. Rendering is local and requires the Remotion dependencies plus FFmpeg/FFprobe.
 
 ## API overview
 - POST /api/jobs — create a documentary job.
