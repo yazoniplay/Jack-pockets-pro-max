@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
-  Activity, ArrowDownToLine, ArrowRight, Check, Clapperboard, Clock3,
+  Activity, ArrowDownToLine, ArrowRight, Check, Clapperboard,
   FileVideo2, Film, FolderOpen, LoaderCircle, Mic2, Plus, Radio,
   RefreshCw, Search, Settings2, ShieldCheck, Sparkles, WandSparkles,
 } from "lucide-react";
@@ -19,7 +19,7 @@ type Job = {
   error: string | null; events: EventItem[];
 };
 type Provider = { name: string; configured: boolean; model: string };
-type Candidate = Asset;
+type Candidate = Omit<Asset, "local_file" | "source_url" | "license_name" | "license_url">;
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(`${API}${path}`, {
