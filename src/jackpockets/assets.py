@@ -56,7 +56,6 @@ def rank_footage_candidates(
     ranked = []
     for search_position, candidate in enumerate(candidates):
         relevance_score = max(0, 20 - search_position * 2)
-        pixels = candidate.width * candidate.height
         if candidate.width >= 1920 and candidate.height >= 1080:
             resolution_score = 35
             resolution_label = "1080p+"
