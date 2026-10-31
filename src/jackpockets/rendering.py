@@ -7,6 +7,7 @@ import subprocess
 from pathlib import Path
 
 from .media import MediaError, MediaReport, probe_media, validate_render
+from .soundtrack import generate_ambient_score
 from .timeline import TimelineManifest
 
 
@@ -67,10 +68,16 @@ def render_documentary(
         sum(scene.duration_frames for scene in manifest.scenes),
         manifest.fps,
     )
-    if manifest.music_file:
+    if manifest.music_enabled and manifest.music_file:
         _public_asset(renderer_dir, manifest.music_file)
 
     props = manifest.to_remotion_props()
+    if manifest.music_enabled and not manifest.music_file:
+        score_relative = f"generated/{job_id}-ambient.wav"
+        score_path = renderer_dir / "public" / score_relative
+        generate_ambient_score(score_path, expected_duration)
+        props["musicSrc"] = score_relative
+
     generated_dir = renderer_dir / ".generated"
     generated_dir.mkdir(parents=True, exist_ok=True)
     props_path = generated_dir / f"{job_id}.json"
