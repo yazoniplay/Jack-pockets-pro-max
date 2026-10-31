@@ -16,6 +16,7 @@ def client(tmp_path, monkeypatch):
     monkeypatch.delenv("OLLAMA_API_KEY", raising=False)
     monkeypatch.setenv("OLLAMA_BASE_URL", "https://ollama.com/v1")
     monkeypatch.delenv("GROQ_API_KEY", raising=False)
+    monkeypatch.delenv("PEXELS_API_KEY", raising=False)
     get_settings.cache_clear()
     with TestClient(app) as test_client:
         yield test_client
