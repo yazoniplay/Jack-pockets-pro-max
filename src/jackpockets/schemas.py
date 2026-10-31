@@ -36,3 +36,4 @@ class FootageSelectionRequest(BaseModel):
     width: int = Field(ge=1, le=10000)
     height: int = Field(ge=1, le=10000)
     duration_seconds: int = Field(ge=0, le=3600)
+    beat_id: str | None = Field(default=None, max_length=80)
