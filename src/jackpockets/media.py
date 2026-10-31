@@ -84,7 +84,7 @@ def master_audio_track(path: str | Path, timeout_seconds: int = 300) -> MediaRep
     ffmpeg = require_tool("ffmpeg")
     temporary = target.with_name(f"{target.stem}.audio-master{target.suffix}")
     try:
-        result = subprocess.run(
+        subprocess.run(
             [
                 ffmpeg,
                 "-y",
@@ -127,8 +127,12 @@ def master_audio_track(path: str | Path, timeout_seconds: int = 300) -> MediaRep
     if not temporary.is_file() or temporary.stat().st_size <= 0:
         temporary.unlink(missing_ok=True)
         raise MediaError("Final audio mastering produced an empty video.")
-    mastered = probe_media(temporary)
-    original = probe_media(target)
+    try:
+        mastered = probe_media(temporary)
+        original = probe_media(target)
+    except MediaError:
+        temporary.unlink(missing_ok=True)
+        raise
     if not mastered.video_codec or not mastered.audio_codec:
         temporary.unlink(missing_ok=True)
         raise MediaError("Mastered video is missing its video or audio stream.")
