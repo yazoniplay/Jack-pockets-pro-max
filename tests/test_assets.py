@@ -1,4 +1,11 @@
-from jackpockets.assets import FootageCandidate, choose_video_file, rank_footage_candidates
+from jackpockets.assets import (
+    FootageCandidate,
+    choose_video_file,
+    diversify_storyboard_recommendations,
+    rank_editorial_candidates,
+    rank_footage_candidates,
+    semantic_relevance,
+)
 
 
 def test_choose_video_file_prefers_high_resolution_mp4() -> None:
@@ -74,3 +81,49 @@ def test_footage_ranking_is_bounded_and_reports_short_clips() -> None:
     ranked = rank_footage_candidates([candidate], target_duration_seconds=12)
     assert 0 <= ranked[0]["quality_score"] <= 100
     assert ranked[0]["quality_notes"][-1] == "Duration: shorter than beat"
+
+
+def test_semantic_relevance_uses_provider_tags_and_explains_matches() -> None:
+    candidate = FootageCandidate(
+        provider="pexels", provider_id="44", title="Pexels footage 44",
+        creator="Creator", page_url="https://www.pexels.com/video/ancient-rome-44/",
+        download_url="https://videos.pexels.com/44.mp4", width=1920, height=1080,
+        duration_seconds=18, license_name="Pexels License",
+        license_url="https://www.pexels.com/license/", tags=("ancient Rome", "colosseum", "history"),
+    )
+    result = semantic_relevance(candidate, "Rome expanded across the Mediterranean", "Ancient Roman city", "Roman architecture")
+    assert result["score"] > 0
+    assert result["evidence"] == "metadata"
+    assert any("rome" in note.lower() for note in result["notes"])
+
+
+def test_editorial_ranking_keeps_visual_and_technical_scores_separate() -> None:
+    relevant = FootageCandidate(
+        provider="pexels", provider_id="51", title="Roman forum", creator="Creator",
+        page_url="https://www.pexels.com/video/roman-forum-51/",
+        download_url="https://videos.pexels.com/51.mp4", width=1920, height=1080,
+        duration_seconds=12, license_name="Pexels License",
+        license_url="https://www.pexels.com/license/", tags=("rome", "forum", "ancient"),
+    )
+    generic = FootageCandidate(
+        provider="pexels", provider_id="52", title="Ocean waves", creator="Creator",
+        page_url="https://www.pexels.com/video/ocean-waves-52/",
+        download_url="https://videos.pexels.com/52.mp4", width=1920, height=1080,
+        duration_seconds=12, license_name="Pexels License",
+        license_url="https://www.pexels.com/license/", tags=("ocean", "water"),
+    )
+    ranked = rank_editorial_candidates([generic, relevant], "Rome's public forums shaped civic life", "Ancient Roman forum", "Roman forum")
+    assert ranked[0]["provider_id"] == "51"
+    assert ranked[0]["editorial_score"] >= ranked[1]["editorial_score"]
+    assert "quality_score" in ranked[0] and "semantic_score" in ranked[0]
+
+
+def test_cross_beat_diversity_avoids_reusing_the_same_top_clip() -> None:
+    recommendations = [
+        {"beat_id": "a", "results": [{"provider_id": "same", "editorial_score": 95}, {"provider_id": "a2", "editorial_score": 70}]},
+        {"beat_id": "b", "results": [{"provider_id": "same", "editorial_score": 90}, {"provider_id": "b2", "editorial_score": 80}]},
+    ]
+    result = diversify_storyboard_recommendations(recommendations)
+    selected = {item["recommended_provider_id"] for item in result}
+    assert selected == {"same", "b2"}
+    assert all(any(candidate.get("recommended_for_beat") for candidate in item["results"]) for item in result)
