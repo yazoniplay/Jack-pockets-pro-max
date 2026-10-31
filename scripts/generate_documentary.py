@@ -63,7 +63,8 @@ async def build_timeline(job_id: str, job: dict, script: str) -> tuple[TimelineM
     storyboard_data = result.get("storyboard") or {}
     beats = storyboard_data.get("beats") or []
     if not beats:
-        raise RuntimeError("The storyboard stage returned no beats.")
+        warning = result.get("storyboard_warning") or "No storyboard warning was recorded."
+        raise RuntimeError(f"The storyboard stage returned no beats. {warning}")
 
     providers = configured_providers()
     gemini = providers.get("gemini")
@@ -106,7 +107,6 @@ async def build_timeline(job_id: str, job: dict, script: str) -> tuple[TimelineM
                 item.get("visual_evidence") == "gemini_preview_frame" for item in ranked
             )
 
-        # Prefer a never-used clip. At minimum, never reuse the immediately previous clip.
         chosen = next(
             (item for item in ranked if item["provider_id"] not in used_ids),
             None,
@@ -261,6 +261,9 @@ async def main(args: argparse.Namespace) -> Path:
     if not job or job["status"] != "needs_review":
         raise RuntimeError((job or {}).get("error") or "Narration/storyboard generation failed.")
     print("[narration] Speech and timed captions generated")
+    for warning in (job.get("result") or {}).get("storyboard_warning", "").split(" | "):
+        if warning:
+            print(f"::warning::{warning}")
 
     manifest, footage_report = await build_timeline(job_id, job, script)
     (output_dir / "timeline.json").write_text(
