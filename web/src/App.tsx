@@ -169,26 +169,24 @@ export default function App() {
     if (!selected || !narration?.audio_path) return;
     void run("render", async () => {
       if (!assets.length) throw new Error("Add at least one footage clip before rendering.");
-      const introFrames = 150;
-      const footageFrames = assets.reduce((sum, asset) => sum + asset.duration_seconds * 30, 0);
-      if (introFrames + footageFrames < narration.duration_frames) {
-        throw new Error(`Selected footage covers ${Math.round(footageFrames / 30)} seconds, but narration needs about ${Math.round(narration.duration_frames / 30)} seconds. Add more unique clips before rendering.`);
-      }
-      const scenes = [
-        {
-          id: "opening-title",
-          kind: "title",
-          duration_frames: introFrames,
-          eyebrow: "A JACK POCKETS DOCUMENTARY",
-          title: selected.brief.topic,
-          body: "An evidence-led documentary",
-        },
-        ...assets.map((asset, index) => ({
-          id: `footage-${index + 1}`,
+      const storyboard = result.storyboard;
+      let scenes: Record<string, unknown>[];
+      if (storyboard?.beats?.length) {
+        const assignments = storyboard.beats.map((beat: any) => ({
+          beat,
+          asset: assets.find((asset) => asset.beat_id === beat.id),
+        }));
+        const missing = assignments.filter((item: any) => !item.asset);
+        if (missing.length) {
+          throw new Error(`The storyboard has ${missing.length} uncovered visual beats. Add one clip to every storyboard beat before rendering.`);
+        }
+        scenes = assignments.map(({ beat, asset }: any, index: number) => ({
+          id: beat.id,
           kind: "footage",
-          duration_frames: Math.max(15, asset.duration_seconds * 30),
-          title: asset.title,
-          body: asset.creator ? `Footage: ${asset.creator}` : "",
+          duration_frames: beat.end_frame - beat.start_frame,
+          eyebrow: index === 0 ? "A JACK POCKETS DOCUMENTARY" : beat.shot_type.toUpperCase(),
+          title: beat.visual_description,
+          body: beat.narration_excerpt,
           asset: {
             source_url: asset.source_url,
             local_file: asset.local_file,
@@ -198,8 +196,40 @@ export default function App() {
             license_url: asset.license_url,
             attribution_required: false,
           },
-        })),
-      ];
+        }));
+      } else {
+        const introFrames = 150;
+        const footageFrames = assets.reduce((sum, asset) => sum + asset.duration_seconds * 30, 0);
+        if (introFrames + footageFrames < narration.duration_frames) {
+          throw new Error(`Selected footage covers ${Math.round(footageFrames / 30)} seconds, but narration needs about ${Math.round(narration.duration_frames / 30)} seconds. Add more unique clips before rendering.`);
+        }
+        scenes = [
+          {
+            id: "opening-title",
+            kind: "title",
+            duration_frames: introFrames,
+            eyebrow: "A JACK POCKETS DOCUMENTARY",
+            title: selected.brief.topic,
+            body: "An evidence-led documentary",
+          },
+          ...assets.map((asset, index) => ({
+            id: `footage-${index + 1}`,
+            kind: "footage",
+            duration_frames: Math.max(15, asset.duration_seconds * 30),
+            title: asset.title,
+            body: asset.creator ? `Footage: ${asset.creator}` : "",
+            asset: {
+              source_url: asset.source_url,
+              local_file: asset.local_file,
+              title: asset.title,
+              creator: asset.creator,
+              license_name: asset.license_name,
+              license_url: asset.license_url,
+              attribution_required: false,
+            },
+          })),
+        ];
+      }
       const manifest = {
         title: selected.brief.topic,
         fps: 30,
