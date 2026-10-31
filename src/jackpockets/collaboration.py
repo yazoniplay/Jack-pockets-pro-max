@@ -130,9 +130,6 @@ async def run_roundtable(
         elif error:
             warnings.append(error)
 
-    synthesis_provider = (
-        providers.get("groq") or providers.get("gemini") or providers.get("ollama")
-    )
     source_manifest = [
         {"agent": item.role, **source}
         for item in contributions
@@ -142,23 +139,34 @@ async def run_roundtable(
         "Synthesize the specialist work and critiques into one coherent documentary "
         "development package. Resolve disagreements explicitly. Do not fabricate facts, "
         "sources or quotations. Cite only URLs in the supplied source manifest. Keep "
-        "unresolved issues in a section called OPEN QUESTIONS.\n\n"
+        "unresolved issues in a section called OPEN QUESTIONS.\\n\\n"
         + review_prompt
-        + "\n\nSOURCE MANIFEST\n"
+        + "\\n\\nSOURCE MANIFEST\\n"
         + json.dumps(source_manifest, ensure_ascii=False, indent=2)
-        + "\n\nCRITIQUES\n"
-        + "\n\n".join(
-            f"[{item.role}]\n{item.critique or 'No critique returned.'}"
+        + "\\n\\nCRITIQUES\\n"
+        + "\\n\\n".join(
+            f"[{item.role}]\\n{item.critique or 'No critique returned.'}"
             for item in contributions
         )
     )
-    synthesis, error = await _safe_generate(
-        synthesis_provider,
-        "You are the executive documentary editor. Produce the best defensible synthesis.",
-        synthesis_prompt,
-    )
-    if error:
-        warnings.append(error)
+    provider_order = [
+        providers[name]
+        for name in ("groq", "gemini", "ollama")
+        if name in providers
+    ]
+    synthesis = None
+    synthesis_provider = None
+    for provider in provider_order:
+        synthesis, error = await _safe_generate(
+            provider,
+            "You are the executive documentary editor. Produce the best defensible synthesis.",
+            synthesis_prompt,
+        )
+        if synthesis:
+            synthesis_provider = provider
+            break
+        if error:
+            warnings.append("Synthesis fallback: " + error)
     final_text = synthesis.text if synthesis else (
         "Synthesis unavailable. Review the specialist contributions and retry."
     )
@@ -179,20 +187,32 @@ async def run_roundtable(
             "dates or causal claims. Do not include production directions, shot descriptions, "
             "footnotes or markdown tables. Use only claims supported by the development package "
             "and its source manifest. Flag any unsupported detail inline as [VERIFY: ...] "
-            "rather than silently presenting it as fact. Return only the narration script.\n\n"
-            "DEVELOPMENT PACKAGE\n" + final_text
-            + "\n\nSOURCE MANIFEST\n"
+            "rather than silently presenting it as fact. Return only the narration script.\\n\\n"
+            "DEVELOPMENT PACKAGE\\n" + final_text
+            + "\\n\\nSOURCE MANIFEST\\n"
             + json.dumps(source_manifest, ensure_ascii=False, indent=2)
         )
-        script_reply, script_error = await _safe_generate(
-            synthesis_provider,
-            "You are a meticulous long-form documentary screenwriter. Accuracy comes before drama.",
-            script_prompt,
-        )
-        if script_reply:
+        script_provider = None
+        script_reply = None
+        script_providers = [synthesis_provider] + [
+            provider for provider in provider_order if provider.name != synthesis_provider.name
+        ]
+        for provider in script_providers:
+            reply, script_error = await _safe_generate(
+                provider,
+                "You are a meticulous long-form documentary screenwriter. Accuracy comes before drama.",
+                script_prompt,
+            )
+            if reply and reply.text.strip():
+                script_reply = reply
+                script_provider = provider
+                break
+            if script_error:
+                warnings.append("Narration provider fallback: " + script_error)
+        if script_reply and script_provider:
             script_draft = script_reply.text.strip()
             reviewer = next(
-                (provider for provider in review_assignments if provider.name != synthesis_provider.name),
+                (provider for provider in review_assignments if provider.name != script_provider.name),
                 None,
             )
             if reviewer:
@@ -202,16 +222,19 @@ async def run_roundtable(
                     "Audit this narration draft against the supplied development package. "
                     "List unsupported or overstated claims, missing caveats, invented specifics, "
                     "weak transitions and factual risks. Do not rewrite the script. "
-                    "If you cannot verify a claim from the package, say so.\n\n"
-                    "DEVELOPMENT PACKAGE\n" + final_text
-                    + "\n\nNARRATION DRAFT\n" + script_draft,
+                    "If you cannot verify a claim from the package, say so.\\n\\n"
+                    "DEVELOPMENT PACKAGE\\n" + final_text
+                    + "\\n\\nNARRATION DRAFT\\n" + script_draft,
                 )
                 if review_reply:
                     script_review = review_reply.text
                 elif review_error:
                     warnings.append("Script audit unavailable: " + review_error)
-        elif script_error:
-            warnings.append("Narration draft unavailable: " + script_error)
+        else:
+            warnings.append(
+                "Narration draft unavailable from every configured provider. "
+                "Check provider/model errors above."
+            )
 
     mode = "multi_agent" if len(contributions) > 1 else "single_provider"
     if mode == "single_provider":
