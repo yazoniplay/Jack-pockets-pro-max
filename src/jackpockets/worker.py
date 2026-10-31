@@ -2,15 +2,64 @@
 
 from __future__ import annotations
 
+import math
+import re
+
 from .collaboration import run_roundtable
 from .providers import configured_providers
 from .storage import claim_job, get_job, update_job
 
 
+def build_rule_based_storyboard(script: str, duration_frames: int, fps: int):
+    """Create a valid baseline edit plan when every remote model fails."""
+    from .storyboard import StoryboardBeat, StoryboardPlan
+
+    words = script.split()
+    if not words or duration_frames <= 0:
+        raise ValueError("A non-empty script and positive duration are required.")
+
+    target_count = max(1, min(80, math.ceil(duration_frames / (fps * 10)), len(words)))
+    stop_words = {
+        "a", "an", "and", "are", "as", "at", "be", "by", "for", "from",
+        "in", "into", "is", "it", "of", "on", "or", "that", "the", "this",
+        "to", "was", "were", "with", "we", "they", "their", "you", "your",
+    }
+    shot_types = ("establishing", "process", "detail", "nature", "abstract")
+    beats = []
+    for index in range(target_count):
+        word_start = round(index * len(words) / target_count)
+        word_end = round((index + 1) * len(words) / target_count)
+        excerpt = " ".join(words[word_start:word_end]).strip()
+        terms = [
+            re.sub(r"[^a-zA-Z0-9'-]", "", word).lower()
+            for word in excerpt.split()
+        ]
+        keywords = [word for word in terms if len(word) > 2 and word not in stop_words]
+        query_terms = " ".join(keywords[:9]) or "documentary subject"
+        start_frame = round(index * duration_frames / target_count)
+        end_frame = round((index + 1) * duration_frames / target_count)
+        beats.append(
+            StoryboardBeat(
+                id=f"beat-{index + 1:02d}",
+                start_frame=start_frame,
+                end_frame=end_frame,
+                narration_excerpt=excerpt[:500],
+                visual_query=f"{query_terms} documentary footage"[:160],
+                visual_description=f"Documentary visuals illustrating {excerpt}"[:180],
+                shot_type=shot_types[index % len(shot_types)],
+                editorial_reason=(
+                    "Fallback visual plan derived from this narration segment; "
+                    "editorial review is recommended."
+                ),
+            )
+        )
+    return StoryboardPlan(duration_frames=duration_frames, fps=fps, beats=beats)
+
+
 async def generate_storyboard_with_fallback(
     script: str, duration_frames: int, fps: int, providers: dict
 ):
-    """Try each configured model so one provider's formatting failure cannot stop editing."""
+    """Try each configured model, then build a local plan if all model calls fail."""
     from .storyboard import generate_storyboard
 
     warnings: list[str] = []
@@ -32,9 +81,13 @@ async def generate_storyboard_with_fallback(
                 f"{provider.name} storyboard attempt failed: "
                 f"{type(exc).__name__}: {str(exc)[:300]}"
             )
-    if not ordered:
-        warnings.append("No model provider is configured to create the visual storyboard.")
-    return None, warnings
+
+    plan = build_rule_based_storyboard(script, duration_frames, fps)
+    warnings.append(
+        "All configured AI storyboard attempts failed; a basic local storyboard "
+        "was generated from narration segments. Review footage choices carefully."
+    )
+    return plan, warnings
 
 
 async def run_job(job_id: str, brief: dict) -> None:
@@ -113,10 +166,7 @@ async def run_narration_job(job_id: str, text: str, voice: str, fps: int) -> Non
         storyboard, storyboard_warnings = await generate_storyboard_with_fallback(
             text, result.duration_frames, fps, providers
         )
-        if storyboard:
-            payload["storyboard"] = storyboard.model_dump(mode="json")
-        else:
-            payload["storyboard"] = {"beats": []}
+        payload["storyboard"] = storyboard.model_dump(mode="json")
         if storyboard_warnings:
             payload["storyboard_warning"] = " | ".join(storyboard_warnings)
         payload["next_stage"] = "visual_timeline_assembly"
@@ -127,7 +177,7 @@ async def run_narration_job(job_id: str, text: str, voice: str, fps: int) -> Non
             {
                 "voice": voice,
                 "caption_count": len(result.captions),
-                "storyboard_beats": len(storyboard.beats) if storyboard else 0,
+                "storyboard_beats": len(storyboard.beats),
                 "storyboard_warnings": storyboard_warnings,
             },
             result=payload,
