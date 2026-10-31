@@ -48,6 +48,50 @@ def choose_video_file(files: list[dict]) -> dict | None:
     )
 
 
+def rank_footage_candidates(
+    candidates: list[FootageCandidate],
+    target_duration_seconds: float | None = None,
+) -> list[dict]:
+    """Rank relevant search results by technical suitability without inventing relevance."""
+    ranked = []
+    for search_position, candidate in enumerate(candidates):
+        relevance_score = max(0, 20 - search_position * 2)
+        pixels = candidate.width * candidate.height
+        if candidate.width >= 1920 and candidate.height >= 1080:
+            resolution_score = 35
+            resolution_label = "1080p+"
+        elif candidate.width >= 1280 and candidate.height >= 720:
+            resolution_score = 26
+            resolution_label = "720p"
+        else:
+            resolution_score = 12
+            resolution_label = "below 720p"
+        ratio = candidate.width / candidate.height if candidate.height else 0
+        ratio_score = max(0, round(20 - abs(ratio - (16 / 9)) * 18))
+        ratio_label = "16:9" if abs(ratio - (16 / 9)) <= 0.08 else f"{ratio:.2f}:1"
+        if target_duration_seconds and target_duration_seconds > 0:
+            duration_score = round(25 * min(candidate.duration_seconds / target_duration_seconds, 1))
+            duration_label = (
+                "covers beat" if candidate.duration_seconds >= target_duration_seconds
+                else "shorter than beat"
+            )
+        else:
+            duration_score = 25 if 6 <= candidate.duration_seconds <= 45 else 16
+            duration_label = f"{candidate.duration_seconds}s"
+        score = relevance_score + resolution_score + ratio_score + duration_score
+        ranked.append({
+            **candidate.__dict__,
+            "quality_score": min(100, score),
+            "quality_notes": [
+                f"Resolution: {resolution_label}",
+                f"Frame: {ratio_label}",
+                f"Duration: {duration_label}",
+            ],
+            "search_position": search_position + 1,
+        })
+    return sorted(ranked, key=lambda item: item["quality_score"], reverse=True)
+
+
 class PexelsClient:
     LICENSE_URL = "https://www.pexels.com/license/"
 
