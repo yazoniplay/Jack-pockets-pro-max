@@ -217,6 +217,7 @@ async def evaluate_visual_candidates(
         item["visual_score"] = visual_score
         item["visual_notes"] = [str(score.get("reason", "Visual match assessed"))[:240]]
         item["visual_evidence"] = "gemini_preview_frame"
+        item["editorial_basis"] = "visual_plus_metadata_and_technical"
         item["editorial_score"] = round(
             visual_score * 0.65 + item.get("semantic_score", 0) * 0.2 + item.get("quality_score", 0) * 0.15
         )
