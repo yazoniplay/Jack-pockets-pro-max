@@ -24,6 +24,8 @@ const SceneFrame: React.FC<{ scene: Scene }> = ({ scene }) => {
     extrapolateLeft: "clamp",
     extrapolateRight: "clamp",
   });
+  const cameraScale = interpolate(frame, [0, Math.max(1, scene.durationInFrames)], [1.035, 1.105]);
+  const cameraDrift = interpolate(frame, [0, Math.max(1, scene.durationInFrames)], [-0.7, 0.7]);
 
   return (
     <AbsoluteFill style={{ backgroundColor: "#08090d", opacity }}>
@@ -31,12 +33,24 @@ const SceneFrame: React.FC<{ scene: Scene }> = ({ scene }) => {
         <OffthreadVideo
           src={mediaSource(scene.mediaSrc)}
           muted
-          style={{ width: "100%", height: "100%", objectFit: "cover" }}
+          style={{
+            width: "100%",
+            height: "100%",
+            objectFit: "cover",
+            transform: `scale(${cameraScale}) translateX(${cameraDrift}%)`,
+            transformOrigin: "center center",
+          }}
         />
       ) : scene.mediaSrc ? (
         <Img
           src={mediaSource(scene.mediaSrc)}
-          style={{ width: "100%", height: "100%", objectFit: "cover" }}
+          style={{
+            width: "100%",
+            height: "100%",
+            objectFit: "cover",
+            transform: `scale(${cameraScale}) translateX(${cameraDrift}%)`,
+            transformOrigin: "center center",
+          }}
         />
       ) : null}
       <AbsoluteFill
@@ -84,27 +98,39 @@ const SceneFrame: React.FC<{ scene: Scene }> = ({ scene }) => {
   );
 };
 
-const CaptionFrame: React.FC<{ text: string }> = ({ text }) => (
-  <AbsoluteFill style={{ justifyContent: "flex-end", alignItems: "center", paddingBottom: 86, pointerEvents: "none" }}>
-    <div
-      style={{
-        maxWidth: "78%",
-        padding: "12px 22px",
-        backgroundColor: "rgba(4,5,8,.78)",
-        color: "#fff",
-        fontFamily: "Arial, Helvetica, sans-serif",
-        fontSize: 28,
-        fontWeight: 600,
-        lineHeight: 1.35,
-        textAlign: "center",
-        borderRadius: 8,
-        textShadow: "0 2px 8px rgba(0,0,0,.7)",
-      }}
-    >
-      {text}
-    </div>
-  </AbsoluteFill>
-);
+const CaptionFrame: React.FC<{ text: string }> = ({ text }) => {
+  const frame = useCurrentFrame();
+  const opacity = interpolate(frame, [0, 4, 1000], [0, 1, 1], {
+    extrapolateRight: "clamp",
+  });
+  const translateY = interpolate(frame, [0, 5], [12, 0], {
+    extrapolateRight: "clamp",
+  });
+  return (
+    <AbsoluteFill style={{ justifyContent: "flex-end", alignItems: "center", paddingBottom: 86, pointerEvents: "none" }}>
+      <div
+        style={{
+          maxWidth: "78%",
+          padding: "12px 22px",
+          backgroundColor: "rgba(4,5,8,.82)",
+          border: "1px solid rgba(255,255,255,.12)",
+          color: "#fff",
+          fontFamily: "Arial, Helvetica, sans-serif",
+          fontSize: 28,
+          fontWeight: 650,
+          lineHeight: 1.35,
+          textAlign: "center",
+          borderRadius: 8,
+          textShadow: "0 2px 8px rgba(0,0,0,.7)",
+          opacity,
+          transform: `translateY(${translateY}px)`,
+        }}
+      >
+        {text}
+      </div>
+    </AbsoluteFill>
+  );
+};
 
 export const Documentary: React.FC<DocumentaryProps> = (props) => {
   let cursor = 0;
@@ -122,7 +148,28 @@ export const Documentary: React.FC<DocumentaryProps> = (props) => {
     <AbsoluteFill style={{ backgroundColor: "#08090d" }}>
       {sceneSequences}
       {props.narrationSrc ? <Audio src={mediaSource(props.narrationSrc)} /> : null}
-      {props.musicSrc ? <Audio src={mediaSource(props.musicSrc)} volume={0.12} /> : null}
+      {props.musicSrc ? (
+        <Audio
+          src={mediaSource(props.musicSrc)}
+          volume={(frame) => {
+            const speechActive = props.captions.some(
+              (caption) => frame >= caption.startFrame - 8 && frame <= caption.endFrame + 12,
+            );
+            const target = speechActive ? 0.045 : 0.12;
+            const fadeIn = interpolate(frame, [0, 45], [0, 1], {
+              extrapolateLeft: "clamp",
+              extrapolateRight: "clamp",
+            });
+            const fadeOut = interpolate(
+              frame,
+              [Math.max(0, cursor - 60), cursor],
+              [1, 0],
+              { extrapolateLeft: "clamp", extrapolateRight: "clamp" },
+            );
+            return target * Math.min(fadeIn, fadeOut);
+          }}
+        />
+      ) : null}
       {props.captions.map((caption, index) => (
         <Sequence
           key={`${caption.startFrame}-${index}`}
