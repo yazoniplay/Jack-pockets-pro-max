@@ -120,7 +120,8 @@ def semantic_relevance(candidate: FootageCandidate, narration_excerpt: str, visu
     if tag_hits: notes.append("Tags match: " + ", ".join(sorted(tag_hits)[:5]))
     if title_hits: notes.append("Title/context match: " + ", ".join(sorted(title_hits)[:5]))
     if not notes: notes.append("No matching topic terms found in provider metadata")
-    return {"score": score, "notes": notes, "evidence": "metadata" if tag_tokens else "limited_metadata"}
+    evidence = "metadata" if tag_tokens else "limited_metadata" if title_hits else "insufficient"
+    return {"score": score, "notes": notes, "evidence": evidence}
 
 def rank_editorial_candidates(candidates: list[FootageCandidate], narration_excerpt: str, visual_description: str, visual_query: str, target_duration_seconds: float | None = None) -> list[dict]:
     """Combine explainable metadata relevance with independent technical fit."""
@@ -132,7 +133,12 @@ def rank_editorial_candidates(candidates: list[FootageCandidate], narration_exce
         item["semantic_score"] = relevance["score"]
         item["semantic_notes"] = relevance["notes"]
         item["semantic_evidence"] = relevance["evidence"]
-        item["editorial_score"] = round(relevance["score"] * 0.7 + item["quality_score"] * 0.3)
+        item["editorial_score"] = (
+            round(relevance["score"] * 0.7 + item["quality_score"] * 0.3)
+            if relevance["evidence"] != "insufficient"
+            else item["quality_score"]
+        )
+        item["editorial_basis"] = "metadata_plus_technical" if relevance["evidence"] != "insufficient" else "technical_fallback"
         ranked.append(item)
     return sorted(ranked, key=lambda item: item["editorial_score"], reverse=True)
 
