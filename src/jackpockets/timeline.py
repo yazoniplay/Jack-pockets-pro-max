@@ -2,7 +2,10 @@
 
 from __future__ import annotations
 
-from pydantic import BaseModel, Field, HttpUrl, model_validator
+from pathlib import PurePosixPath
+from typing import Literal
+
+from pydantic import BaseModel, Field, HttpUrl, field_validator, model_validator
 
 
 class TimelineAsset(BaseModel):
@@ -17,7 +20,7 @@ class TimelineAsset(BaseModel):
 
 class TimelineScene(BaseModel):
     id: str = Field(min_length=1, max_length=80)
-    kind: str
+    kind: Literal["title", "footage", "chapter"]
     duration_frames: int = Field(ge=15, le=18000)
     title: str = Field(min_length=1, max_length=180)
     body: str = Field(default="", max_length=600)
@@ -28,6 +31,8 @@ class TimelineScene(BaseModel):
     def media_scenes_require_provenance(self):
         if self.kind == "footage" and self.asset is None:
             raise ValueError("Footage scenes require an asset with source and license metadata.")
+        if self.kind != "footage" and self.asset is not None:
+            raise ValueError("Only footage scenes may contain a media asset.")
         return self
 
 
