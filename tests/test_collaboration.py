@@ -17,7 +17,7 @@ class FakeProvider:
 
 def test_three_providers_run_specialist_agents_and_cross_review() -> None:
     providers = {
-        name: FakeProvider(name) for name in ("gemini", "anthropic", "openai")
+        name: FakeProvider(name) for name in ("gemini", "ollama", "groq")
     }
     result = asyncio.run(
         run_roundtable(
@@ -38,8 +38,8 @@ def test_three_providers_run_specialist_agents_and_cross_review() -> None:
 
 
 def test_single_provider_is_never_mislabeled_as_collaboration() -> None:
-    provider = FakeProvider("openai")
-    result = asyncio.run(run_roundtable({"openai": provider}, {"topic": "Test"}))
+    provider = FakeProvider("groq")
+    result = asyncio.run(run_roundtable({"groq": provider}, {"topic": "Test"}))
     assert result.mode == "single_provider"
     assert result.script_draft
     assert result.script_review is None
