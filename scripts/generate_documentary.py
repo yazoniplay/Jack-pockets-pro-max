@@ -353,6 +353,6 @@ if __name__ == "__main__":
     parsed = parser.parse_args()
     try:
         asyncio.run(main(parsed))
-    except Exception as exc:  # noqa: BLE001 - fail the Actions job with a useful message
+    except Exception as exc:
         print(f"::error::{type(exc).__name__}: {str(exc)[:1500]}", file=sys.stderr)
         raise SystemExit(1) from exc
