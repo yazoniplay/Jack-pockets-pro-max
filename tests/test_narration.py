@@ -53,7 +53,7 @@ def test_synthesis_falls_back_when_edge_tts_omits_word_boundaries(
     import sys
     from types import SimpleNamespace
 
-    import jackpockets.narration as narration
+    from jackpockets import narration
 
     class FakeCommunicate:
         def __init__(self, *args, **kwargs):
