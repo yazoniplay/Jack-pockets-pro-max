@@ -203,3 +203,6 @@ textarea::placeholder,input::placeholder{color:#596170}
 .music-toggle span,.music-toggle strong,.music-toggle small{display:block}
 .music-toggle strong{font-size:10px;color:#e3e8ed;font-weight:600}
 .music-toggle small{font-size:9px;color:#85919f;margin-top:4px}
+
+.candidate-thumb{width:76px;height:52px;flex:0 0 76px;object-fit:cover;border-radius:5px;border:1px solid #303542;background:#151923}
+.beat-recommendation .candidate-thumb{width:62px;height:44px;flex-basis:62px}
