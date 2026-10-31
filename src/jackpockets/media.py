@@ -82,6 +82,8 @@ def validate_render(
     require_audio: bool = True,
     expected_width: int = 1920,
     expected_height: int = 1080,
+    expected_duration_seconds: float | None = None,
+    duration_tolerance_seconds: float = 1.5,
 ) -> MediaReport:
     report = probe_media(path)
     failures = []
@@ -89,6 +91,12 @@ def validate_render(
         failures.append(f"duration {report.duration_seconds:.1f}s is below {min_duration_seconds}s")
     if report.duration_seconds > max_duration_seconds:
         failures.append(f"duration {report.duration_seconds:.1f}s exceeds {max_duration_seconds}s")
+    if expected_duration_seconds is not None and abs(report.duration_seconds - expected_duration_seconds) > duration_tolerance_seconds:
+        failures.append(
+            f"duration {report.duration_seconds:.2f}s differs from the approved timeline "
+            f"duration {expected_duration_seconds:.2f}s by more than "
+            f"{duration_tolerance_seconds:.2f}s"
+        )
     if report.width != expected_width or report.height != expected_height:
         failures.append(
             f"resolution is {report.width}x{report.height}; expected {expected_width}x{expected_height}"
