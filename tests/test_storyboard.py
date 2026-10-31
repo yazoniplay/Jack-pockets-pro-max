@@ -6,7 +6,10 @@ from pydantic import ValidationError
 
 from jackpockets.providers import ModelReply
 from jackpockets.storyboard import StoryboardError, StoryboardPlan, generate_storyboard
-from jackpockets.worker import generate_storyboard_with_fallback
+from jackpockets.worker import (
+    build_rule_based_storyboard,
+    generate_storyboard_with_fallback,
+)
 
 
 class FakeStoryboardProvider:
@@ -104,3 +107,41 @@ def test_storyboard_tries_next_provider_when_primary_returns_invalid_output() ->
     assert warnings
     assert "groq storyboard attempt failed" in warnings[0]
     assert "fallback succeeded with gemini" in warnings[1]
+
+
+def test_rule_based_storyboard_covers_entire_duration_with_contiguous_beats() -> None:
+    plan = build_rule_based_storyboard(
+        "The ocean cables connect continents. Ships repair damaged lines beneath the sea.",
+        1800,
+        30,
+    )
+    assert plan.duration_frames == 1800
+    assert plan.fps == 30
+    assert len(plan.beats) == 6
+    assert plan.beats[0].start_frame == 0
+    assert plan.beats[-1].end_frame == 1800
+    assert all(
+        left.end_frame == right.start_frame
+        for left, right in zip(plan.beats, plan.beats[1:])
+    )
+
+
+def test_all_provider_failures_still_produce_a_valid_local_storyboard() -> None:
+    groq = FakeStoryboardProvider("not valid JSON")
+    groq.name = "groq"
+    gemini = FakeStoryboardProvider("still not valid JSON")
+    gemini.name = "gemini"
+
+    plan, warnings = asyncio.run(
+        generate_storyboard_with_fallback(
+            "The ocean cables connect continents. Ships repair damaged lines beneath the sea.",
+            1800,
+            30,
+            {"groq": groq, "gemini": gemini},
+        )
+    )
+
+    assert plan is not None
+    assert plan.beats
+    assert plan.beats[-1].end_frame == 1800
+    assert any("basic local storyboard" in warning for warning in warnings)
