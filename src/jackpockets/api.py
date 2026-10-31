@@ -12,7 +12,13 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 
 from . import __version__
-from .assets import AssetError, FootageCandidate, PexelsClient, download_pexels_video, rank_footage_candidates
+from .assets import (
+    AssetError,
+    FootageCandidate,
+    PexelsClient,
+    download_pexels_video,
+    rank_footage_candidates,
+)
 from .config import get_settings
 from .providers import configured_providers
 from .schemas import CreateJobRequest, FootageSelectionRequest, JobSummary, NarrationRequest
