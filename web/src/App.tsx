@@ -193,7 +193,7 @@ export default function App() {
           duration_frames: beat.end_frame - beat.start_frame,
           eyebrow: index === 0 ? "A JACK POCKETS DOCUMENTARY" : beat.shot_type.toUpperCase(),
           title: beat.visual_description,
-          body: beat.narration_excerpt,
+          body: "",
           asset: {
             source_url: asset.source_url,
             local_file: asset.local_file,
