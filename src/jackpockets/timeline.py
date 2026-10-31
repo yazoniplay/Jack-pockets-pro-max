@@ -85,6 +85,10 @@ class TimelineManifest(BaseModel):
                     "eyebrow": scene.eyebrow,
                     "mediaSrc": scene.asset.local_file if scene.asset else None,
                     "mediaType": "video" if scene.asset else None,
+                    "sourceCredit": (
+                        f"Footage: {scene.asset.creator or 'Unknown creator'} · {scene.asset.license_name}"
+                        if scene.asset else None
+                    ),
                 }
             )
             cursor += scene.duration_frames
