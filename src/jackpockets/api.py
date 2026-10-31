@@ -198,6 +198,10 @@ async def select_footage(job_id: str, request: FootageSelectionRequest) -> dict:
         raise HTTPException(status_code=404, detail="Documentary job not found.")
     if job["status"] not in {"needs_review", "narrating"}:
         raise HTTPException(status_code=409, detail="Footage can only be added during editorial review.")
+    if request.beat_id:
+        storyboard = (job.get("result") or {}).get("storyboard") or {}
+        if not any(beat.get("id") == request.beat_id for beat in storyboard.get("beats", [])):
+            raise HTTPException(status_code=400, detail="Unknown storyboard beat id.")
     candidate = FootageCandidate(
         provider="pexels",
         provider_id=request.provider_id,
@@ -224,6 +228,7 @@ async def select_footage(job_id: str, request: FootageSelectionRequest) -> dict:
     asset_record = {
         "provider": "pexels",
         "provider_id": request.provider_id,
+        "beat_id": request.beat_id,
         "title": request.title,
         "creator": request.creator,
         "source_url": str(request.page_url),
