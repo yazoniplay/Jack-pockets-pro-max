@@ -43,7 +43,7 @@ def test_ollama_uses_configured_openai_compatible_endpoint(monkeypatch) -> None:
 
 
 def test_groq_uses_bearer_auth_and_openai_compatible_endpoint(monkeypatch) -> None:
-    provider = GroqProvider("groq-test-key", "llama-3.3-70b-versatile", "https://api.groq.com/openai/v1")
+    provider = GroqProvider("groq-test-key", "openai/gpt-oss-120b", "https://api.groq.com/openai/v1")
     captured = {}
 
     async def fake_post(url, headers, payload):
