@@ -39,3 +39,6 @@ target-version = "py311"
 
 [tool.ruff.lint.isort]
 known-first-party = ["jackpockets"]
+
+[tool.ruff.lint.per-file-ignores]
+"scripts/generate_documentary.py" = ["I001"]
