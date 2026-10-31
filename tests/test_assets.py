@@ -2,6 +2,7 @@ from jackpockets.assets import (
     FootageCandidate,
     choose_video_file,
     diversify_storyboard_recommendations,
+    evaluate_visual_candidates,
     rank_editorial_candidates,
     rank_footage_candidates,
     semantic_relevance,
@@ -127,3 +128,39 @@ def test_cross_beat_diversity_avoids_reusing_the_same_top_clip() -> None:
     selected = {item["recommended_provider_id"] for item in result}
     assert selected == {"same", "b2"}
     assert all(any(candidate.get("recommended_for_beat") for candidate in item["results"]) for item in result)
+
+def test_visual_evaluation_uses_preview_frame_and_model_score(monkeypatch) -> None:
+    import asyncio
+    from types import SimpleNamespace
+
+    import httpx
+
+    class FakeResponse:
+        content = b"fake-image-bytes"
+        headers = {"content-type": "image/jpeg"}
+        url = "https://images.pexels.com/frame.jpg"
+
+        def raise_for_status(self):
+            return None
+
+    class FakeClient:
+        async def __aenter__(self): return self
+        async def __aexit__(self, *args): return None
+        async def get(self, url): return FakeResponse()
+
+    monkeypatch.setattr(httpx, "AsyncClient", lambda **kwargs: FakeClient())
+
+    class FakeVisionProvider:
+        async def generate_with_images(self, system, prompt, images):
+            assert len(images) == 1
+            assert images[0][0] == b"fake-image-bytes"
+            return SimpleNamespace(text='{"scores":[{"provider_id":"77","score":94,"reason":"The frame clearly shows the Roman forum"}]}')
+
+    candidates = [{
+        "provider_id": "77", "thumbnail_url": "https://images.pexels.com/frame.jpg",
+        "semantic_score": 50, "quality_score": 80, "editorial_score": 59,
+    }]
+    result = asyncio.run(evaluate_visual_candidates(candidates, "Roman civic life", "Roman forum", "ancient Rome", FakeVisionProvider()))
+    assert result[0]["visual_score"] == 94
+    assert result[0]["visual_evidence"] == "gemini_preview_frame"
+    assert result[0]["editorial_score"] > 59
