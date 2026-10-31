@@ -54,7 +54,7 @@ async def _safe_generate(provider: LLMProvider, system: str, prompt: str, ground
         else:
             reply = await provider.generate(system, prompt)
         return reply, None
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - isolate provider failures per agent
         return None, f"{provider.name}: {type(exc).__name__}: {str(exc)[:300]}"
 
 
