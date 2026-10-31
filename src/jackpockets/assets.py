@@ -3,14 +3,15 @@
 from __future__ import annotations
 
 import json
+import re
 from dataclasses import dataclass, field
 from pathlib import Path
-import re
 from urllib.parse import urlparse
 
 import httpx
 
 from .config import get_settings
+from .providers import ProviderError
 
 
 class AssetError(RuntimeError):
@@ -103,7 +104,7 @@ def _tokens(value: str) -> set[str]:
 
 def semantic_relevance(candidate: FootageCandidate, narration_excerpt: str, visual_description: str, visual_query: str) -> dict:
     """Score metadata evidence against the spoken meaning and intended visual."""
-    intent = _tokens(" ".join((narration_excerpt, visual_description, visual_query)))
+    intent = _tokens(f"{narration_excerpt} {visual_description} {visual_query}")
     tag_tokens = _tokens(" ".join(candidate.tags))
     title_tokens = _tokens(candidate.title)
     slug = candidate.page_url.rstrip("/").rsplit("/", 1)[-1]
@@ -195,7 +196,7 @@ async def evaluate_visual_candidates(
             raw = raw.split("\n", 1)[-1].removesuffix("```").strip()
         payload = json.loads(raw)
         scores = {str(item["provider_id"]): item for item in payload.get("scores", [])}
-    except Exception:
+    except (ProviderError, httpx.HTTPError, ValueError, KeyError, TypeError, AttributeError):
         for item in ranked_candidates:
             item["visual_evidence"] = "evaluation_failed"
             item["visual_notes"] = ["Visual model evaluation failed; metadata and technical ranking retained"]
