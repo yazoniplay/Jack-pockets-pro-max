@@ -67,8 +67,8 @@ async def run_roundtable(
     """Run specialist agents in parallel, cross-review their work, then synthesize."""
     assignments = [
         ("research_editor", "gemini"),
-        ("story_architect", "anthropic"),
-        ("fact_checker", "openai"),
+        ("story_architect", "groq"),
+        ("fact_checker", "ollama"),
     ]
     available = [(role, providers[name]) for role, name in assignments if name in providers]
     if not available:
@@ -131,7 +131,7 @@ async def run_roundtable(
             warnings.append(error)
 
     synthesis_provider = (
-        providers.get("openai") or providers.get("anthropic") or providers.get("gemini")
+        providers.get("groq") or providers.get("gemini") or providers.get("ollama")
     )
     source_manifest = [
         {"agent": item.role, **source}
