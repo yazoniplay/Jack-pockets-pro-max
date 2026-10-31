@@ -76,57 +76,6 @@ class RESTProvider:
         raise NotImplementedError
 
 
-class OpenAIProvider(RESTProvider):
-    name = "openai"
-
-    async def generate(self, system: str, prompt: str) -> ModelReply:
-        data = await self._post(
-            "https://api.openai.com/v1/chat/completions",
-            {"Authorization": f"Bearer {self.api_key}", "Content-Type": "application/json"},
-            {
-                "model": self.model,
-                "temperature": 0.4,
-                "messages": [
-                    {"role": "system", "content": system},
-                    {"role": "user", "content": prompt},
-                ],
-            },
-        )
-        try:
-            text = data["choices"][0]["message"]["content"]
-        except (KeyError, IndexError, TypeError) as exc:
-            raise ProviderError("OpenAI response did not contain message text.") from exc
-        return ModelReply(self.name, self.model, text)
-
-
-class AnthropicProvider(RESTProvider):
-    name = "anthropic"
-
-    async def generate(self, system: str, prompt: str) -> ModelReply:
-        data = await self._post(
-            "https://api.anthropic.com/v1/messages",
-            {
-                "x-api-key": self.api_key,
-                "anthropic-version": "2023-06-01",
-                "content-type": "application/json",
-            },
-            {
-                "model": self.model,
-                "max_tokens": 5000,
-                "temperature": 0.4,
-                "system": system,
-                "messages": [{"role": "user", "content": prompt}],
-            },
-        )
-        try:
-            text = "\n".join(
-                item["text"] for item in data["content"] if item.get("type") == "text"
-            )
-        except (KeyError, TypeError) as exc:
-            raise ProviderError("Anthropic response did not contain message text.") from exc
-        return ModelReply(self.name, self.model, text)
-
-
 class OpenAICompatibleProvider(RESTProvider):
     """Provider adapter for Ollama and Groq OpenAI-compatible chat APIs."""
 
