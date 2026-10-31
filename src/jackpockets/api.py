@@ -8,8 +8,8 @@ from uuid import uuid4
 
 import httpx
 from fastapi import BackgroundTasks, FastAPI, HTTPException, Query
-from fastapi.responses import FileResponse
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
 
 from . import __version__
 from .assets import AssetError, PexelsClient
@@ -51,7 +51,7 @@ def health() -> dict:
         "status": "ok",
         "version": __version__,
         "configured_providers": sorted(providers),
-        "pipeline": "planning_foundation",
+        "pipeline": "multi_agent_planning+narration+remotion_render",
     }
 
 
