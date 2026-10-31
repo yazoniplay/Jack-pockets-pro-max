@@ -7,7 +7,7 @@ from pydantic import BaseModel, Field, HttpUrl, model_validator
 
 class TimelineAsset(BaseModel):
     source_url: HttpUrl
-    local_file: str | None = None
+    local_file: str = Field(min_length=1, max_length=300)
     title: str
     creator: str | None = None
     license_name: str
