@@ -12,10 +12,10 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 
 from . import __version__
-from .assets import AssetError, PexelsClient
+from .assets import AssetError, FootageCandidate, PexelsClient, download_pexels_video
 from .config import get_settings
 from .providers import configured_providers
-from .schemas import CreateJobRequest, JobSummary, NarrationRequest
+from .schemas import CreateJobRequest, FootageSelectionRequest, JobSummary, NarrationRequest
 from .storage import create_job as persist_job
 from .storage import get_job, initialize_database, list_jobs, update_job
 from .timeline import TimelineManifest
@@ -189,3 +189,55 @@ def download_video(job_id: str) -> FileResponse:
         media_type="video/mp4",
         filename=f"jack-pockets-{job_id}.mp4",
     )
+
+
+@app.post("/api/jobs/{job_id}/assets")
+async def select_footage(job_id: str, request: FootageSelectionRequest) -> dict:
+    job = get_job(job_id)
+    if job is None:
+        raise HTTPException(status_code=404, detail="Documentary job not found.")
+    if job["status"] not in {"needs_review", "narrating"}:
+        raise HTTPException(status_code=409, detail="Footage can only be added during editorial review.")
+    candidate = FootageCandidate(
+        provider="pexels",
+        provider_id=request.provider_id,
+        title=request.title,
+        creator=request.creator,
+        page_url=str(request.page_url),
+        download_url=str(request.media_uri),
+        width=request.width,
+        height=request.height,
+        duration_seconds=request.duration_seconds,
+        license_name="Pexels License",
+        license_url=PexelsClient.LICENSE_URL,
+    )
+    relative_path = f"assets/{job_id}/pexels-{request.provider_id}.mp4"
+    try:
+        saved = await download_pexels_video(
+            candidate, Path("renderer") / "public" / relative_path
+        )
+    except AssetError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except httpx.HTTPError as exc:
+        raise HTTPException(status_code=502, detail="Pexels media download failed.") from exc
+
+    asset_record = {
+        "provider": "pexels",
+        "provider_id": request.provider_id,
+        "title": request.title,
+        "creator": request.creator,
+        "source_url": str(request.page_url),
+        "local_file": relative_path,
+        "width": request.width,
+        "height": request.height,
+        "duration_seconds": request.duration_seconds,
+        "license_name": "Pexels License",
+        "license_url": PexelsClient.LICENSE_URL,
+        "bytes": saved.stat().st_size,
+    }
+    payload = dict(job.get("result") or {})
+    assets = list(payload.get("assets") or [])
+    assets.append(asset_record)
+    payload["assets"] = assets
+    update_job(job_id, job["status"], "asset.selected", {"provider_id": request.provider_id}, result=payload)
+    return asset_record
