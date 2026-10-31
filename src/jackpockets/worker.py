@@ -22,6 +22,7 @@ async def run_job(job_id: str, brief: dict) -> None:
                     "model": item.model,
                     "draft": item.draft,
                     "critique": item.critique,
+                    "sources": item.sources,
                 }
                 for item in result.contributions
             ],
