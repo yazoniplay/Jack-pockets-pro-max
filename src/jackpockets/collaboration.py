@@ -139,13 +139,13 @@ async def run_roundtable(
         "Synthesize the specialist work and critiques into one coherent documentary "
         "development package. Resolve disagreements explicitly. Do not fabricate facts, "
         "sources or quotations. Cite only URLs in the supplied source manifest. Keep "
-        "unresolved issues in a section called OPEN QUESTIONS.\\n\\n"
+        "unresolved issues in a section called OPEN QUESTIONS.\n\n"
         + review_prompt
-        + "\\n\\nSOURCE MANIFEST\\n"
+        + "\n\nSOURCE MANIFEST\n"
         + json.dumps(source_manifest, ensure_ascii=False, indent=2)
-        + "\\n\\nCRITIQUES\\n"
-        + "\\n\\n".join(
-            f"[{item.role}]\\n{item.critique or 'No critique returned.'}"
+        + "\n\nCRITIQUES\n"
+        + "\n\n".join(
+            f"[{item.role}]\n{item.critique or 'No critique returned.'}"
             for item in contributions
         )
     )
@@ -187,9 +187,9 @@ async def run_roundtable(
             "dates or causal claims. Do not include production directions, shot descriptions, "
             "footnotes or markdown tables. Use only claims supported by the development package "
             "and its source manifest. Flag any unsupported detail inline as [VERIFY: ...] "
-            "rather than silently presenting it as fact. Return only the narration script.\\n\\n"
-            "DEVELOPMENT PACKAGE\\n" + final_text
-            + "\\n\\nSOURCE MANIFEST\\n"
+            "rather than silently presenting it as fact. Return only the narration script.\n\n"
+            "DEVELOPMENT PACKAGE\n" + final_text
+            + "\n\nSOURCE MANIFEST\n"
             + json.dumps(source_manifest, ensure_ascii=False, indent=2)
         )
         script_provider = None
@@ -222,9 +222,9 @@ async def run_roundtable(
                     "Audit this narration draft against the supplied development package. "
                     "List unsupported or overstated claims, missing caveats, invented specifics, "
                     "weak transitions and factual risks. Do not rewrite the script. "
-                    "If you cannot verify a claim from the package, say so.\\n\\n"
-                    "DEVELOPMENT PACKAGE\\n" + final_text
-                    + "\\n\\nNARRATION DRAFT\\n" + script_draft,
+                    "If you cannot verify a claim from the package, say so.\n\n"
+                    "DEVELOPMENT PACKAGE\n" + final_text
+                    + "\n\nNARRATION DRAFT\n" + script_draft,
                 )
                 if review_reply:
                     script_review = review_reply.text
