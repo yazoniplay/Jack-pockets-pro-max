@@ -27,3 +27,20 @@ def test_word_boundaries_are_grouped_into_readable_phrases() -> None:
     assert captions[0].start_frame == 0
     assert captions[0].end_frame == 35
     assert captions[1].text == "Then it continues"
+
+
+
+def test_missing_word_boundaries_can_use_estimated_caption_timing() -> None:
+    from jackpockets.narration import estimate_word_captions, group_word_captions
+
+    words = estimate_word_captions(
+        "The ocean cables connect continents.", duration_frames=900, fps=30
+    )
+    captions = group_word_captions(words, fps=30)
+
+    assert words
+    assert words[0].start_frame == 0
+    assert words[-1].end_frame == 900
+    assert " ".join(item.text for item in captions) == (
+        "The ocean cables connect continents."
+    )
