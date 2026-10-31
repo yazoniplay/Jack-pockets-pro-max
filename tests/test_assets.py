@@ -136,9 +136,10 @@ def test_visual_evaluation_uses_preview_frame_and_model_score(monkeypatch) -> No
     import httpx
 
     class FakeResponse:
-        content = b"fake-image-bytes"
-        headers = {"content-type": "image/jpeg"}
-        url = "https://images.pexels.com/frame.jpg"
+        def __init__(self):
+            self.content = b"fake-image-bytes"
+            self.headers = {"content-type": "image/jpeg"}
+            self.url = "https://images.pexels.com/frame.jpg"
 
         def raise_for_status(self):
             return None
