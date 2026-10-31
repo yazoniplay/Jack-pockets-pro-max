@@ -189,7 +189,7 @@ export default function App() {
             creator: asset.creator,
             license_name: asset.license_name,
             license_url: asset.license_url,
-            attribution_required: true,
+            attribution_required: false,
           },
         })),
       ];
