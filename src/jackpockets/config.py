@@ -13,13 +13,15 @@ class Settings(BaseSettings):
     job_retention_days: int = 30
     request_timeout_seconds: float = 90.0
     max_provider_retries: int = 2
-    anthropic_api_key: str | None = None
-    anthropic_model: str = "claude-3-7-sonnet-latest"
     gemini_api_key: str | None = None
-    gemini_model: str = "gemini-2.5-flash"
+    gemini_model: str = "gemini-3.5-flash-lite"
+    ollama_api_key: str | None = None
+    ollama_base_url: str = "https://ollama.com/v1"
+    ollama_model: str = "gpt-oss:120b"
+    groq_api_key: str | None = None
+    groq_base_url: str = "https://api.groq.com/openai/v1"
+    groq_model: str = "llama-3.3-70b-versatile"
     pexels_api_key: str | None = None
-    openai_api_key: str | None = None
-    openai_model: str = "gpt-4.1"
     cors_origins: str = "http://localhost:3000,http://localhost:5173"
 
 
