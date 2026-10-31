@@ -10,7 +10,8 @@ permissions:
   contents: read
 
 jobs:
-  test:
+  backend:
+    name: Python lint and tests
     runs-on: ubuntu-latest
     steps:
       - name: Check out repository
@@ -20,11 +21,33 @@ jobs:
         with:
           python-version: "3.11"
           cache: pip
+          cache-dependency-path: pyproject.toml
       - name: Install project
         run: |
           python -m pip install --upgrade pip
-          pip install -e ".[dev]"
+          pip install -e ".[dev,media]"
       - name: Lint
         run: ruff check .
       - name: Test
-        run: pytest
+        run: pytest -q
+
+  frontend:
+    name: Dashboard and Remotion type checks
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Build web dashboard
+        working-directory: web
+        run: |
+          npm install
+          npm run build
+      - name: Check Remotion renderer
+        working-directory: renderer
+        run: |
+          npm install
+          npm run typecheck
