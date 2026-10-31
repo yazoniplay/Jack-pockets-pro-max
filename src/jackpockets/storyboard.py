@@ -24,8 +24,8 @@ class StoryboardBeat(BaseModel):
 
     @model_validator(mode="after")
     def validate_frame_range(self):
-        if self.end_frame <= self.start_frame:
-            raise ValueError("Storyboard beat end_frame must be after start_frame.")
+        if self.end_frame - self.start_frame < 15:
+            raise ValueError("Storyboard beats must be at least 15 frames long.")
         return self
 
 
@@ -41,12 +41,14 @@ class StoryboardPlan(BaseModel):
         for beat in self.beats:
             if beat.id in seen_ids:
                 raise ValueError(f"Duplicate storyboard beat id: {beat.id}")
-            if beat.start_frame < previous_end:
-                raise ValueError("Storyboard beats must be ordered and cannot overlap.")
+            if beat.start_frame != previous_end:
+                raise ValueError("Storyboard beats must be contiguous and cover the narration.")
             if beat.end_frame > self.duration_frames:
                 raise ValueError("Storyboard beat extends beyond narration duration.")
             seen_ids.add(beat.id)
             previous_end = beat.end_frame
+        if previous_end != self.duration_frames:
+            raise ValueError("Storyboard beats must cover the complete narration duration.")
         return self
 
 
