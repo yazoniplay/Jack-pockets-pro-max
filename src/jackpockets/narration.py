@@ -4,6 +4,9 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
+import math
+import shutil
+import subprocess
 
 
 class NarrationError(RuntimeError):
@@ -58,6 +61,50 @@ def group_word_captions(
     return grouped
 
 
+def estimate_word_captions(text: str, duration_frames: int, fps: int) -> list[WordCaption]:
+    """Create approximate word timings when the speech service omits boundary events."""
+    words = text.split()
+    if not words or duration_frames <= 0:
+        return []
+    weights = [max(1, len(word)) for word in words]
+    total_weight = sum(weights)
+    cursor = 0
+    timed_words: list[WordCaption] = []
+    cumulative = 0
+    for word, weight in zip(words, weights):
+        start = round(cumulative / total_weight * duration_frames)
+        cumulative += weight
+        end = round(cumulative / total_weight * duration_frames)
+        timed_words.append(
+            WordCaption(start, max(start + 1, end), word)
+        )
+        cursor = end
+    return timed_words
+
+
+def probe_audio_duration_frames(audio_path: Path, fps: int) -> int | None:
+    """Read the actual encoded audio duration with FFprobe when available."""
+    if shutil.which("ffprobe") is None:
+        return None
+    try:
+        completed = subprocess.run(
+            [
+                "ffprobe", "-v", "error", "-show_entries", "format=duration",
+                "-of", "default=noprint_wrappers=1:nokey=1", str(audio_path),
+            ],
+            check=True,
+            capture_output=True,
+            text=True,
+            timeout=20,
+        )
+        seconds = float(completed.stdout.strip())
+        if math.isfinite(seconds) and seconds > 0:
+            return max(1, round(seconds * fps))
+    except (OSError, subprocess.SubprocessError, ValueError):
+        return None
+    return None
+
+
 async def synthesize_narration(
     text: str,
     output_path: str | Path,
@@ -110,5 +157,15 @@ async def synthesize_narration(
 
     if not target.is_file() or target.stat().st_size == 0:
         raise NarrationError("Speech provider returned no audio.")
+    duration_frames = last_end
     captions = group_word_captions(word_captions, fps)
-    return NarrationResult(str(target), last_end, captions, voice, fps)
+    if duration_frames <= 0:
+        duration_frames = probe_audio_duration_frames(target, fps) or max(
+            1, round(len(text.split()) / 135 * 60 * fps)
+        )
+        estimated_words = estimate_word_captions(text, duration_frames, fps)
+        captions = group_word_captions(estimated_words, fps)
+    if duration_frames <= 0:
+        target.unlink(missing_ok=True)
+        raise NarrationError("Could not determine a positive narration duration.")
+    return NarrationResult(str(target), duration_frames, captions, voice, fps)
