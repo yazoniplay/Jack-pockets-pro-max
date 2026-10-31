@@ -12,7 +12,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 
 from . import __version__
-from .assets import AssetError, FootageCandidate, PexelsClient, download_pexels_video
+from .assets import AssetError, FootageCandidate, PexelsClient, download_pexels_video, rank_footage_candidates
 from .config import get_settings
 from .providers import configured_providers
 from .schemas import CreateJobRequest, FootageSelectionRequest, JobSummary, NarrationRequest
@@ -106,6 +106,7 @@ async def start_job(job_id: str, background_tasks: BackgroundTasks) -> dict:
 async def search_footage(
     query: str = Query(min_length=1, max_length=160),
     limit: int = Query(default=12, ge=1, le=30),
+    target_duration_seconds: float | None = Query(default=None, ge=1, le=120),
 ) -> dict:
     try:
         client = PexelsClient()
@@ -117,7 +118,7 @@ async def search_footage(
     return {
         "provider": "pexels",
         "license": "Pexels License",
-        "results": [candidate.__dict__ for candidate in candidates],
+        "results": rank_footage_candidates(candidates, target_duration_seconds),
     }
 
 
