@@ -11,7 +11,7 @@ type EventItem = { type: string; created_at: string; payload: Record<string, unk
 type Asset = {
   provider_id: string; title: string; creator: string; source_url: string;
   local_file: string; width: number; height: number; duration_seconds: number;
-  license_name: string; license_url: string;
+  license_name: string; license_url: string; beat_id?: string | null;
 };
 type Candidate = {
   provider_id: string; title: string; creator: string; page_url: string;
@@ -49,6 +49,7 @@ export default function App() {
   const [tone, setTone] = useState("Cinematic, evidence-led");
   const [script, setScript] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
+  const [activeBeatId, setActiveBeatId] = useState("");
   const [candidates, setCandidates] = useState<Candidate[]>([]);
   const [busy, setBusy] = useState("");
   const [error, setError] = useState("");
@@ -130,11 +131,13 @@ export default function App() {
     });
   };
 
-  const searchFootage = () => {
+  const searchFootage = (query = searchQuery, beatId = "") => {
     void run("search", async () => {
-      if (!searchQuery.trim()) throw new Error("Enter a footage search phrase.");
+      if (!query.trim()) throw new Error("Enter a footage search phrase.");
+      setSearchQuery(query);
+      setActiveBeatId(beatId);
       const data = await request<{ results: Candidate[] }>(
-        `/api/assets/search?query=${encodeURIComponent(searchQuery)}&limit=12`,
+        `/api/assets/search?query=${encodeURIComponent(query)}&limit=12`,
       );
       setCandidates(data.results);
       setNotice(`${data.results.length} footage options found.`);
@@ -155,6 +158,7 @@ export default function App() {
           width: candidate.width,
           height: candidate.height,
           duration_seconds: candidate.duration_seconds,
+          beat_id: activeBeatId || null,
         }),
       });
       setNotice("Footage downloaded and its source/license metadata recorded.");
