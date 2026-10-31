@@ -222,7 +222,15 @@ async def start_render(
         job_id,
         "rendering",
         "render.started",
-        {"scene_count": len(manifest.scenes), "fps": manifest.fps},
+        {
+            "scene_count": len(manifest.scenes),
+            "fps": manifest.fps,
+            "music_mode": (
+                "generated_original_ambient"
+                if manifest.music_enabled and not manifest.music_file
+                else "provided_audio" if manifest.music_enabled else "disabled"
+            ),
+        },
     )
     background_tasks.add_task(run_render_job, job_id, manifest_data)
     return get_job(job_id)
