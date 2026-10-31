@@ -19,6 +19,7 @@ from .assets import (
     PexelsClient,
     download_pexels_video,
     diversify_storyboard_recommendations,
+    evaluate_visual_candidates,
     rank_editorial_candidates,
     rank_footage_candidates,
 )
@@ -126,16 +127,21 @@ async def search_footage(
         raise HTTPException(status_code=503, detail=str(exc)) from exc
     except httpx.HTTPError as exc:
         raise HTTPException(status_code=502, detail="Pexels footage search failed.") from exc
+    ranked = (
+        rank_editorial_candidates(
+            candidates, narration_excerpt, visual_description, query, target_duration_seconds
+        )
+        if narration_excerpt or visual_description
+        else rank_footage_candidates(candidates, target_duration_seconds)
+    )
+    if narration_excerpt or visual_description:
+        ranked = await evaluate_visual_candidates(
+            ranked, narration_excerpt, visual_description, query, configured_providers().get("gemini")
+        )
     return {
         "provider": "pexels",
         "license": "Pexels License",
-        "results": (
-            rank_editorial_candidates(
-                candidates, narration_excerpt, visual_description, query, target_duration_seconds
-            )
-            if narration_excerpt or visual_description
-            else rank_footage_candidates(candidates, target_duration_seconds)
-        ),
+        "results": ranked,
     }
 
 
@@ -156,6 +162,7 @@ async def recommend_storyboard_footage(job_id: str) -> dict:
     except AssetError as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
     semaphore = asyncio.Semaphore(3)
+    visual_provider = configured_providers().get("gemini")
 
     async def recommend(beat: dict) -> dict:
         async with semaphore:
@@ -168,6 +175,13 @@ async def recommend_storyboard_footage(job_id: str) -> dict:
                     beat.get("visual_description", ""),
                     beat["visual_query"],
                     duration,
+                )
+                ranked = await evaluate_visual_candidates(
+                    ranked,
+                    beat.get("narration_excerpt", ""),
+                    beat.get("visual_description", ""),
+                    beat["visual_query"],
+                    visual_provider,
                 )
                 return {
                     "beat_id": beat["id"],
