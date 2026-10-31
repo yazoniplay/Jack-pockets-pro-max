@@ -4,11 +4,12 @@ from __future__ import annotations
 
 from .collaboration import run_roundtable
 from .providers import configured_providers
-from .storage import update_job
+from .storage import claim_job, update_job
 
 
 async def run_job(job_id: str, brief: dict) -> None:
-    update_job(job_id, "planning", "pipeline.started", {"stage": "multi_agent_planning"})
+    if not claim_job(job_id):
+        return
     try:
         providers = configured_providers()
         result = await run_roundtable(providers, brief)
