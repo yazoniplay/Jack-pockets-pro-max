@@ -14,3 +14,27 @@ def test_choose_video_file_prefers_high_resolution_mp4() -> None:
 
 def test_choose_video_file_returns_none_without_mp4() -> None:
     assert choose_video_file([{"file_type": "video/webm", "link": "https://example.com/a.webm"}]) is None
+
+
+def test_download_rejects_non_pexels_host(tmp_path) -> None:
+    import asyncio
+
+    import pytest
+
+    from jackpockets.assets import AssetError, FootageCandidate, download_pexels_video
+
+    candidate = FootageCandidate(
+        provider="pexels",
+        provider_id="123",
+        title="Fake clip",
+        creator="Unknown",
+        page_url="https://www.pexels.com/video/123/",
+        download_url="https://example.com/clip.mp4",
+        width=1920,
+        height=1080,
+        duration_seconds=10,
+        license_name="Pexels License",
+        license_url="https://www.pexels.com/license/",
+    )
+    with pytest.raises(AssetError, match="non-Pexels"):
+        asyncio.run(download_pexels_video(candidate, tmp_path / "clip.mp4"))
