@@ -52,10 +52,10 @@ def rank_footage_candidates(
     candidates: list[FootageCandidate],
     target_duration_seconds: float | None = None,
 ) -> list[dict]:
-    """Rank relevant search results by technical suitability without inventing relevance."""
+    """Rank search results by technical fit, using provider order only as a weak tie-breaker."""
     ranked = []
     for search_position, candidate in enumerate(candidates):
-        relevance_score = max(0, 20 - search_position * 2)
+        provider_order_score = max(0, 20 - search_position * 2)
         if candidate.width >= 1920 and candidate.height >= 1080:
             resolution_score = 35
             resolution_label = "1080p+"
@@ -77,7 +77,7 @@ def rank_footage_candidates(
         else:
             duration_score = 25 if 6 <= candidate.duration_seconds <= 45 else 16
             duration_label = f"{candidate.duration_seconds}s"
-        score = relevance_score + resolution_score + ratio_score + duration_score
+        score = provider_order_score + resolution_score + ratio_score + duration_score
         ranked.append({
             **candidate.__dict__,
             "quality_score": min(100, score),
