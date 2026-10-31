@@ -42,6 +42,7 @@ def test_adjacent_repeated_footage_is_rejected() -> None:
         "source_url": "https://example.com/clip.mp4",
         "title": "Sample clip",
         "license_name": "CC BY 4.0",
+        "local_file": "assets/sample.mp4",
     }
     with pytest.raises(ValidationError, match="Adjacent scenes"):
         TimelineManifest(
