@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from .collaboration import run_roundtable
 from .providers import configured_providers
-from .storage import claim_job, update_job
+from .storage import claim_job, get_job, update_job
 
 
 async def run_job(job_id: str, brief: dict) -> None:
@@ -44,5 +44,52 @@ async def run_job(job_id: str, brief: dict) -> None:
             "failed",
             "pipeline.failed",
             {"stage": "planning", "error_type": type(exc).__name__},
+            error=f"{type(exc).__name__}: {str(exc)[:1000]}",
+        )
+
+
+async def run_narration_job(job_id: str, text: str, voice: str, fps: int) -> None:
+    from pathlib import Path
+
+    from .narration import synthesize_narration
+
+    try:
+        result = await synthesize_narration(
+            text,
+            Path("data") / "jobs" / job_id / "narration.mp3",
+            voice=voice,
+            fps=fps,
+        )
+        job = get_job(job_id)
+        payload = dict(job.get("result") or {}) if job else {}
+        payload["approved_script"] = text
+        payload["narration"] = {
+            "audio_path": result.audio_path,
+            "voice": result.voice,
+            "fps": result.fps,
+            "duration_frames": result.duration_frames,
+            "captions": [
+                {
+                    "start_frame": item.start_frame,
+                    "end_frame": item.end_frame,
+                    "text": item.text,
+                }
+                for item in result.captions
+            ],
+        }
+        payload["next_stage"] = "visual_timeline_assembly"
+        update_job(
+            job_id,
+            "needs_review",
+            "narration.completed",
+            {"voice": voice, "caption_count": len(result.captions)},
+            result=payload,
+        )
+    except Exception as exc:  # noqa: BLE001 - persist any speech pipeline failure
+        update_job(
+            job_id,
+            "failed",
+            "narration.failed",
+            {"error_type": type(exc).__name__},
             error=f"{type(exc).__name__}: {str(exc)[:1000]}",
         )
