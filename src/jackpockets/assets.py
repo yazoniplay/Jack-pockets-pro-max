@@ -30,6 +30,7 @@ class FootageCandidate:
     license_name: str
     license_url: str
     tags: tuple[str, ...] = field(default_factory=tuple)
+    thumbnail_url: str | None = None
 
 
 def choose_video_file(files: list[dict]) -> dict | None:
@@ -193,6 +194,7 @@ class PexelsClient:
                     license_name="Pexels License",
                     license_url=self.LICENSE_URL,
                     tags=tuple(str(tag.get("name", "")) if isinstance(tag, dict) else str(tag) for tag in video.get("tags", []) if tag)[:20],
+                    thumbnail_url=(video.get("video_pictures", [{}])[len(video.get("video_pictures", [])) // 2].get("picture") if video.get("video_pictures") else video.get("image")),
                 )
             )
         return candidates
