@@ -197,3 +197,9 @@ textarea::placeholder,input::placeholder{color:#596170}
 .beat-recommendation small{margin-top:4px;color:#7ebba7;font:8px 'DM Mono',monospace}
 .beat-recommendation button{display:flex;align-items:center;gap:5px;padding:6px 8px;border:1px solid #36594e;background:#172722;color:#8cddc2;border-radius:5px;font-size:9px}
 @media(max-width:760px){.storyboard-heading>div{align-items:flex-start;flex-direction:column;gap:5px}.beat-recommendation{grid-column:2/3}}
+
+.music-toggle{display:flex;align-items:center;gap:11px;padding:12px 14px;margin:0 0 12px;border:1px solid #2a3540;border-radius:7px;background:#111720;cursor:pointer}
+.music-toggle input{width:15px;height:15px;accent-color:#65d5b4}
+.music-toggle span,.music-toggle strong,.music-toggle small{display:block}
+.music-toggle strong{font-size:10px;color:#e3e8ed;font-weight:600}
+.music-toggle small{font-size:9px;color:#85919f;margin-top:4px}
