@@ -72,6 +72,11 @@ const SceneFrame: React.FC<{ scene: Scene }> = ({ scene }) => {
         ) : null}
       </div>
       <div style={{ position: "absolute", left: 112, right: 112, top: 64, height: 2, background: "rgba(255,255,255,.24)" }} />
+      {scene.sourceCredit ? (
+        <div style={{ position: "absolute", right: 112, bottom: 64, maxWidth: 760, textAlign: "right", color: "rgba(255,255,255,.68)", fontSize: 14, letterSpacing: 0.5 }}>
+          {scene.sourceCredit}
+        </div>
+      ) : null}
       <div style={{ position: "absolute", left: 112, bottom: 64, color: "rgba(255,255,255,.58)", fontSize: 16, letterSpacing: 3, textTransform: "uppercase" }}>
         JACK POCKETS PRO MAX
       </div>
