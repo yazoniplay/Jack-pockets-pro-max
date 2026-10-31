@@ -44,3 +44,39 @@ def test_missing_word_boundaries_can_use_estimated_caption_timing() -> None:
     assert " ".join(item.text for item in captions) == (
         "The ocean cables connect continents."
     )
+
+
+
+def test_synthesis_falls_back_when_edge_tts_omits_word_boundaries(
+    tmp_path, monkeypatch
+) -> None:
+    import sys
+    from types import SimpleNamespace
+
+    import jackpockets.narration as narration
+
+    class FakeCommunicate:
+        def __init__(self, *args, **kwargs):
+            pass
+
+        async def stream(self):
+            yield {"type": "audio", "data": b"fake-mp3-data"}
+
+    monkeypatch.setitem(
+        sys.modules, "edge_tts", SimpleNamespace(Communicate=FakeCommunicate)
+    )
+    monkeypatch.setattr(
+        narration, "probe_audio_duration_frames", lambda _path, _fps: 90
+    )
+
+    result = asyncio.run(
+        narration.synthesize_narration(
+            "The ocean cables connect continents.", tmp_path / "voice.mp3"
+        )
+    )
+
+    assert result.duration_frames == 90
+    assert result.captions
+    assert " ".join(item.text for item in result.captions) == (
+        "The ocean cables connect continents."
+    )
