@@ -167,9 +167,9 @@ export default function App() {
   const recommendAllFootage = () => {
     if (!selected || !storyboard?.beats?.length) return;
     void run("recommend", async () => {
-      const data = await request<{ recommendations: Array<{ beat_id: string; results: Candidate[]; error: string | null }>; searched_beats: number; beats_with_results: number }>("/api/jobs/" + selected.id + "/assets/recommendations", { method: "POST" });
+      const data = await request<{ recommendations: Array<{ beat_id: string; results: Candidate[]; error: string | null }>; searched_beats: number; beats_with_results: number; visual_evaluated_beats: number; visual_review_limit: number }>("/api/jobs/" + selected.id + "/assets/recommendations", { method: "POST" });
       setBeatRecommendations(Object.fromEntries(data.recommendations.map((item) => [item.beat_id, item.results.map((candidate: Candidate) => ({ ...candidate, recommended_for_beat: candidate.provider_id === item.recommended_provider_id }))])));
-      setNotice("Found footage options for " + data.beats_with_results + " of " + data.searched_beats + " storyboard beats.");
+      setNotice("Found footage for " + data.beats_with_results + " of " + data.searched_beats + " beats. Gemini visually inspected " + data.visual_evaluated_beats + " beats (limit " + data.visual_review_limit + "); remaining matches use metadata and technical ranking.");
     });
   };
 
