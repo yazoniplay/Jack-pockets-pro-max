@@ -141,7 +141,10 @@ async def recommend_storyboard_footage(job_id: str) -> dict:
     fps = int(storyboard.get("fps") or 30)
     if not beats:
         raise HTTPException(status_code=409, detail="Generate a visual storyboard before searching footage.")
-    client = PexelsClient()
+    try:
+        client = PexelsClient()
+    except AssetError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
     semaphore = asyncio.Semaphore(3)
 
     async def recommend(beat: dict) -> dict:
