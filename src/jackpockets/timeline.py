@@ -64,6 +64,7 @@ class TimelineManifest(BaseModel):
     captions: list[TimelineCaption] = Field(default_factory=list)
     narration_file: str | None = None
     music_file: str | None = None
+    music_enabled: bool = True
     fps: int = Field(default=30, ge=24, le=60)
     width: int = Field(default=1920, ge=640, le=3840)
     height: int = Field(default=1080, ge=360, le=2160)
@@ -119,5 +120,5 @@ class TimelineManifest(BaseModel):
                 for caption in self.captions
             ],
             "narrationSrc": self.narration_file,
-            "musicSrc": self.music_file,
+            "musicSrc": self.music_file if self.music_enabled else None,
         }
