@@ -1,0 +1,29 @@
+{
+  "title": "The Shape of History",
+  "subtitle": "A sample documentary",
+  "scenes": [
+    {
+      "id": "opening",
+      "kind": "title",
+      "durationInFrames": 180,
+      "eyebrow": "A JACK POCKETS DOCUMENTARY",
+      "title": "The Shape of History",
+      "body": "A sample composition generated from a structured scene manifest."
+    },
+    {
+      "id": "chapter-one",
+      "kind": "chapter",
+      "durationInFrames": 240,
+      "eyebrow": "CHAPTER 01",
+      "title": "Every story begins with a question.",
+      "body": "Replace this placeholder with approved narration, verified research and selected footage."
+    }
+  ],
+  "captions": [
+    {
+      "startFrame": 35,
+      "endFrame": 105,
+      "text": "A sample subtitle demonstrates timed captions."
+    }
+  ]
+}
