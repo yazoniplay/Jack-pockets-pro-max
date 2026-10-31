@@ -7,6 +7,7 @@ variables and are never included in API responses or logs.
 from __future__ import annotations
 
 import asyncio
+import base64
 from dataclasses import dataclass, field
 from typing import Protocol
 
@@ -132,6 +133,25 @@ class GeminiProvider(RESTProvider):
     async def generate(self, system: str, prompt: str) -> ModelReply:
         return await self._generate(system, prompt, grounded=False)
 
+    async def generate_with_images(self, system: str, prompt: str, images: list[tuple[bytes, str]]) -> ModelReply:
+        """Evaluate supplied visual evidence using Gemini's multimodal input."""
+        parts = [{"text": prompt}]
+        for image_bytes, mime_type in images:
+            parts.append({"inline_data": {"mime_type": mime_type, "data": base64.b64encode(image_bytes).decode("ascii")}})
+        data = await self._post(
+            f"https://generativelanguage.googleapis.com/v1beta/models/{self.model}:generateContent?key={self.api_key}",
+            {"Content-Type": "application/json"},
+            {
+                "systemInstruction": {"parts": [{"text": system}]},
+                "contents": [{"role": "user", "parts": parts}],
+                "generationConfig": {"temperature": 0.1, "maxOutputTokens": 2500, "responseMimeType": "application/json"},
+            },
+        )
+        try:
+            text = "\n".join(part["text"] for part in data["candidates"][0]["content"]["parts"] if "text" in part)
+        except (KeyError, IndexError, TypeError) as exc:
+            raise ProviderError("Gemini visual response did not contain structured text.") from exc
+        return ModelReply(self.name, self.model, text)
     async def generate_grounded(self, system: str, prompt: str) -> ModelReply:
         """Use Gemini Google Search grounding for research-stage discovery."""
         return await self._generate(system, prompt, grounded=True)
