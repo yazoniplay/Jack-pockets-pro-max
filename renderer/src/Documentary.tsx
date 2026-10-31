@@ -62,10 +62,10 @@ const SceneFrame: React.FC<{ scene: Scene }> = ({ scene }) => {
             {scene.eyebrow}
           </div>
         ) : null}
-        <div style={{ fontSize: scene.kind === "title" ? 76 : 64, lineHeight: 1.08, fontWeight: 700, maxWidth: 1320 }}>
+        <div style={{ fontSize: scene.kind === "title" ? 76 : scene.kind === "chapter" ? 64 : 28, lineHeight: 1.08, fontWeight: 700, maxWidth: 1320 }}>
           {scene.title}
         </div>
-        {scene.body ? (
+        {scene.body && scene.kind !== "footage" ? (
           <div style={{ color: "rgba(245,242,235,.78)", fontSize: 28, lineHeight: 1.45, marginTop: 28, maxWidth: 1080 }}>
             {scene.body}
           </div>
