@@ -17,6 +17,7 @@ class Settings(BaseSettings):
     anthropic_model: str = "claude-3-7-sonnet-latest"
     gemini_api_key: str | None = None
     gemini_model: str = "gemini-2.5-flash"
+    pexels_api_key: str | None = None
     openai_api_key: str | None = None
     openai_model: str = "gpt-4.1"
     cors_origins: str = "http://localhost:3000,http://localhost:5173"
