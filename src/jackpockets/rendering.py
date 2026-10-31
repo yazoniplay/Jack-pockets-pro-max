@@ -6,7 +6,7 @@ import json
 import subprocess
 from pathlib import Path
 
-from .media import MediaError, MediaReport, probe_media, validate_render
+from .media import MediaError, MediaReport, master_audio_track, probe_media, validate_render
 from .soundtrack import generate_ambient_score
 from .timeline import TimelineManifest
 
@@ -108,6 +108,7 @@ def render_documentary(
     if result.returncode != 0:
         detail = (result.stderr or result.stdout)[-3000:]
         raise MediaError(f"Remotion render failed: {detail}")
+    master_audio_track(output_path)
     report = validate_render(
         output_path,
         min_duration_seconds=3,
